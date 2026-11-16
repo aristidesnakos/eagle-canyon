@@ -223,7 +223,7 @@ const S_B = W_NOISE + W_CONST + S_G + /*wgsl*/`
 @group(0) @binding(3) var tB: texture_2d<f32>;
 @group(0) @binding(4) var tT: texture_2d<f32>;
 const SUNC = vec3f(1., .66, .40) * 3.4;
-const KD = .3;
+const KD = 1.;
 fn Fg(y: f32) -> f32 { if (y >= YT) { return 0.; } if (y >= YT - DP) { let q = YT - y; return -q * q / (2. * DP); } return y - (YT - DP) - DP * .5; }
 // optical depth from c to p: density a above the rim, rising linearly to a * (1 + KD) at the river
 fn odepth(c: vec3f, p: vec3f) -> f32 {
@@ -231,15 +231,17 @@ fn odepth(c: vec3f, p: vec3f) -> f32 {
   var avg = sat((YT - (c.y + p.y) * .5) / DP);
   if (abs(dy) > .5) { avg = (Fg(p.y) - Fg(c.y)) / dy; }
   // a power of the distance rather than plain exponential fog: near air stays clear, the far air closes in
-  let de = l * (1. + KD * avg) / g.fogp.x;
+  // thinner than FOG at rim height, twice as thick at the river
+  let de = l * (.72 + KD * avg) / g.fogp.x;
   // clear for the first third of the distance, then closing in: 2.8 (6% left) at FOG
-  return 2.8 * pow(max(de - .3, 0.) / .7, 1.7);
+  return 2.8 * pow(max(de - .12, 0.) / .88, 1.35);
 }
 // colour of the desert air seen along v: dusty blue away from the sun, gold toward it, warmer and dustier low down
 fn haze(v: vec3f, low: f32) -> vec3f {
   let mu = dot(v, g.sun.xyz);
   // pale warm grey-blue away from the sun, dusty peach toward it, warmer and dustier low in the canyon
-  var c = mix(vec3f(.36, .39, .50), vec3f(.55, .42, .32), .2 + low * .5);
+  // warm dusty air: tan-rose away from the sun, peach-gold toward it, a touch of blue only overhead
+  var c = mix(vec3f(.46, .42, .40), vec3f(.56, .42, .31), .25 + low * .55);
   c += vec3f(.80, .48, .22) * (pow(sat(mu * .5 + .5), 4.) * .45 + pow(sat(mu), 10.) * .35 + pow(sat(mu), 64.) * .8);
   c *= .92 + .12 * v.y;
   return c;
@@ -247,12 +249,12 @@ fn haze(v: vec3f, low: f32) -> vec3f {
 fn atm(col: vec3f, p: vec3f) -> vec3f {
   let v = p - g.cam.xyz; let d = length(v); let vd = v / max(d, 1e-3);
   let tau = odepth(g.cam.xyz, p);
-  let T = exp(-tau * vec3f(.9, 1., 1.12));
+  let T = exp(-tau * vec3f(.97, 1., 1.06));
   let low = sat((YT - min(p.y, g.cam.y)) / DP);
   // air in the canyon's shadow scatters no sunlight: the haze there is dimmer and bluer
   let pm = mix(p, g.cam.xyz, .5);
   let shd = .5 * (sunVis(p, textureSampleLevel(tB, sR, p.xz / WL, 0.)) + sunVis(pm, textureSampleLevel(tB, sR, pm.xz / WL, 0.)));
-  let hz = haze(vd, low) * mix(vec3f(.55, .58, .68), vec3f(1.), shd);
+  let hz = haze(vd, low) * mix(vec3f(.60, .55, .55), vec3f(1.), shd);
   var c = col * T + hz * (1. - T);
   return mix(c, mix(hz, haze(vd, 0.), .5), ss(g.fogp.y * .82, g.fogp.y * .98, d));
 }

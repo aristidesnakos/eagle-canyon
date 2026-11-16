@@ -14,4 +14,4 @@ if (bad && LV < 2) { SV = [++LV]; keep('eagle', LV); }
 const THIN = 1 << LV, AA = LV > 1 ? 1 : 4;
 // The haze is the design (Ari, 15 Nov 2026): you see about FOG metres, and nothing past FOG * 1.25 is drawn.
 // This is the one tunable value; ?fog=250 in the address overrides it.
-let FOG = URLQ.has('fog') ? +URLQ.get('fog') : 400;
+let FOG = URLQ.has('fog') ? +URLQ.get('fog') : 600; // Ari chose 600 m on 16 Nov 2026

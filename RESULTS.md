@@ -15,7 +15,7 @@ Unity not running, one copy of the game, no other test tabs. **Not fully quiet:*
 | P1 | Eagle build, Medium, haze 400 m, full 1080p: ≥ 60 fps average, GPU ≤ 12 ms, no frame over 25 ms | 59.9 fps; GPU 7.02 ms average (p99 12.88, max 14.7); frame max 18.3 ms, 0 frames over 25 ms | **Pass** |
 | P2 | GPU at 600 m ≤ 1.5 × GPU at 250 m | 8.26 ms vs 6.94 ms = **1.19×** | **Pass**, but read the note |
 | P3 | ≤ 300 KB minified | `index.html` 54.9 KB (22.8 KB gzipped) | **Pass** |
-| P4 | Ari, 5 minutes: "keep flying" ≥ 4/5 and a haze that reads as weather | On Ari's page | Waiting for Ari |
+| P4 | Ari, 5 minutes: "keep flying" ≥ 4/5 and a haze that reads as weather | 3/5 ("I need more diversity in my terrain"); haze 600 m | **Miss** on the rating; the haze pick is made |
 | Kill | < 45 fps at 720p with haze 250 m kills the approach | 60 fps, GPU 4.23 ms average (max 9.1) | **Not killed**, by a wide margin |
 
 **Note on P2.** It passes, but the reason in the plan ("if more, fog distance is the main cost lever, as assumed")
@@ -51,6 +51,21 @@ the code. Three rounds.
 
 **Not met:** the gate was "iterate until nothing above minor". It isn't met; the open items are listed above and
 are the first job of the next session.
+
+## Ari's answers (16 Nov 2026, page db `answers/eagle-1`)
+
+- **Haze:** 600 m. It is now the default (`quality.js`).
+- **Keep flying after 5 minutes:** 3 of 5, below the 4 the plan asked for. His note: "I need more diversity in my
+  terrain". So the renderer is fast enough, but the world is too samey to hold him: one kind of canyon repeating every 4 km.
+- **What exploring should give next:** all five offered: places to find that fill in a map, a nest to come back to,
+  riding the air (thermals, updrafts, gusts), fishing at the river, and time passing from dawn to night. Not "the view is
+  enough".
+
+## Haze fix after the answers
+
+Warm dusty tan-rose away from the sun and peach-gold toward it (no more lavender), thinner than the set distance at
+rim height and about twice as thick at the river, and a gentler fade with a middle depth plane. Not re-timed.
+Critic round 4: CRITIC4
 
 ## What was built
 
