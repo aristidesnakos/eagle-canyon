@@ -158,7 +158,9 @@ fn terr(u: f32) -> f32 {
     let r = length(el);
     if (hh.z > rg.b.x && r < bdist) { bdist = r; bh = (hh.z - rg.b.x) / (1. - rg.b.x); }
   } }
-  let bump = ss(.42, .34, bdist + .2 * (pf(q * 50., 50. * K, 3) - .5)) * ss(.12, .4, e) * ss(.97, .8, e);
+  // (in the basin they spread wider, so the layers step back into tiered temples instead of standing as spikes)
+  let br = mix(.42, .56, rg.c.w);
+  let bump = ss(br, mix(br - .08, br * .25, rg.c.w), bdist + .2 * (pf(q * 50., 50. * K, 3) - .5)) * ss(.12, .4, e) * ss(.97, .8, e);
   e = mix(e, e * (1. - mix(rg.b.y, rg.b.z, bh)), bump);
   // the inner gorge squeezed narrower (rg.b.w > 1), the walls above it stretched to fill
   var u = 1. - e;
@@ -180,7 +182,7 @@ fn terr(u: f32) -> f32 {
         let hh = h33(vec3f(cw, 17.));
         if (hh.z > 1. - .45 * rg.c.x) {
           let r = 3.5 + 3. * hh.x; let dd = length(bc - cc - .5 - (hh.xy - .5) * .4) * 16.;
-          bt = max(bt, YR - 1.4 + (1.9 + 1.2 * hh.y) * pow(sat(1. - dd * dd / (r * r)), .6) - 9. * step(r, dd));
+          bt = max(bt, YR - 1.4 + (2.6 + 1.6 * hh.y) * pow(sat(1. - dd * dd / (r * r)), .6) - 9. * step(r, dd));
         }
       } }
       if (tl < .4) { y = max(y, bt); }
@@ -337,7 +339,7 @@ fn odepth(c: vec3f, p: vec3f) -> f32 {
 // blue only overhead; warmer and dustier low in the canyon
 fn haze(v: vec3f, low: f32) -> vec3f {
   let mu = dot(v, g.sun.xyz);
-  var c = mix(vec3f(.52, .45, .38), vec3f(.58, .43, .31), .25 + low * .55);
+  var c = mix(vec3f(.50, .42, .34), vec3f(.56, .41, .29), .25 + low * .55);
   c += vec3f(.80, .48, .22) * (pow(sat(mu * .5 + .5), 4.) * .45 + pow(sat(mu), 10.) * .35 + pow(sat(mu), 64.) * .8);
   c *= .92 + .12 * v.y;
   return c;
@@ -376,7 +378,8 @@ fn eagleSh(p: vec3f) -> f32 {
 }
 fn bake(p: vec3f) -> vec4f { return textureSampleLevel(tB, sR, p.xz / WL, 0.); }
 // sunlight at a point from the shadow height under it: decided in 3D, so cliffs, the eagle and trees all agree
-fn sunVis(p: vec3f, b: vec4f) -> f32 { return ss(-2.5, 2.5, p.y - b.r + 1.5); }
+// (the edge widens with distance: the shadow heights are sampled every 4 m, and a crisp edge far away breaks into teeth)
+fn sunVis(p: vec3f, b: vec4f) -> f32 { let w = 2.5 + .03 * length(p - g.cam.xyz); return ss(-w, w, p.y - b.r + 1.5); }
 // sky light from above, and warm light bounced off the sunlit rock all around: the more enclosed a place, the less
 // sky but the more canyon wall it sees, so a deep gorge stays warm rather than going black
 // The bounce comes mostly from the sunlit walls across the canyon, which lie away from the sun: faces turned that
@@ -414,7 +417,7 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
   // the gorge: grey-violet schist with dipping foliation all the way up to the Redwall
   if (gorge > .01) {
     let fol = (p.x * .55 + p.z * .83) * .045 + p.y * .02 + vn(p * vec3f(.015, .01, .015)) * 1.4;
-    let sc = vec3f(.13, .13, .19) * (.7 + .55 * vn(vec3f(fol * 3., p.y * .004, 1.)));
+    let sc = vec3f(.15, .15, .165) * (.65 + .6 * vn(vec3f(fol * 3., p.y * .004, 1.)));
     c = mix(c, sc, gorge * ss(.47, .40, yy));
   }
   // the narrows: smooth orange sandstone with long, gently curving cross-beds instead of the layer table
@@ -446,23 +449,26 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
 fn shadeRock(p: vec3f, n0: vec3f, b: vec4f) -> vec3f {
   // On steep faces the 2 m normal map varies only across the face, which paints vertical streaks down tall cliffs:
   // there, lean on a normal from 8 m height differences instead.
+  // Far away (several metres per pixel) the same smoother normal stands in for the unfiltered 2 m map, which would alias.
   var n = n0;
-  let stp = 1. - ss(.45, .75, n0.y);
+  let fw = fwidth(p.y) + fwidth(p.x) * .3 + fwidth(p.z) * .3; // metres per pixel, to fade detail before it shimmers
+  let stp = max((1. - ss(.45, .75, n0.y)) * .7, ss(.6, 2.5, fw));
   if (stp > .01) {
     let e = 8.; let hx = hl(2, p.xz + vec2f(e, 0.)) - hl(2, p.xz - vec2f(e, 0.)); let hz = hl(2, p.xz + vec2f(0., e)) - hl(2, p.xz - vec2f(0., e));
-    n = normalize(mix(n0, normalize(vec3f(-hx, 2. * e, -hz)), stp * .7));
+    n = normalize(mix(n0, normalize(vec3f(-hx, 2. * e, -hz)), stp));
   }
+  let ns = n;
   let dist = length(p - g.cam.xyz);
+  let sandL = regAt(select(0, 1, nearB(p.xz)), p.z).c.z;
   let bp = abs(fract(p.y / 7. + vn(p * vec3f(.01, .03, .01)) * .5) - .5) * 2.; // a continuous triangle wave: ledges every 7 m
-  let fw = fwidth(p.y) + fwidth(p.x) * .3 + fwidth(p.z) * .3; // metres per pixel, to fade detail before it shimmers
   let hn = vn(p * vec3f(.45, .9, .45)) * (1. - ss(.25, .7, fw)) + vn(p * vec3f(1.6, 2.4, 1.6)) * .3 * (1. - ss(.06, .18, fw))
-         + ss(.3, .7, bp) * 1.4 * (1. - ss(.75, .95, n.y)) * (1. - ss(.25, .55, fw / 7.))
+         + ss(.3, .7, bp) * 1.4 * (1. - ss(.75, .95, n.y)) * (1. - ss(.25, .55, fw / 7.)) * (1. - .8 * sandL)
          + vn(p * vec3f(.18, .1, .18)) * .8;
   let dpx = dpdx(p); let dpy = dpdy(p); let dhx = dpdx(hn); let dhy = dpdy(hn);
   let r1 = cross(dpy, n); let r2 = cross(n, dpx); let det = dot(dpx, r1);
   let gr = sign(det) * (dhx * r1 + dhy * r2);
   n = normalize(abs(det) * n - gr * .5 * ss(260., 60., dist));
-  let alb = rock(p, n, fw, b);
+  let alb = rock(p, ns, fw, b); // colour from the smooth normal: soil and rock do not flicker with the bumps
   let sh = sunVis(p, b) * textureSampleLevel(tT, sR, p.xz / WL, 0.).r * eagleSh(p);
   let ndl = sat(dot(n, g.sun.xyz));
   var c = alb * (SUNC * ndl * sh + lightAmb(n, b.g));
@@ -548,6 +554,14 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
   let p = i.wp; let t = g.cam.w; let b = bake(p); let sh = sunVis(p, b) * eagleSh(p);
   let fl = normalize(i.col.rg * 2. - 1.);
   var c: vec3f; var a = 1.;
+  if (i.col.b > .5 && i.col.b < .8) {
+    // spray rising where the fall hits the river: a broken veil, densest low down
+    let h = i.col.a;
+    let m1 = vn(vec3f(p.x * .35, p.y * .25 - t * 1.6, p.z * .35)) * .65 + vn(vec3f(p.x * 1.1, p.y * .8 - t * 2.4, p.z * 1.1)) * .35;
+    a = ss(.45, .75, m1 + .35 - h * .6) * ss(1., .7, h) * .85;
+    c = vec3f(.78, .80, .80) * (SUNC * .45 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.5);
+    return vec4f(atm(c, p), a);
+  }
   if (i.col.b < .5) {
     // falling water: streaks racing down, thinner and broken at the edges
     let along = dot(p.xz, vec2f(-fl.y, fl.x));
@@ -597,7 +611,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
   let n0 = vn(vec3f(q * .25, t * .3)) + vn(vec3f(q * .9, t * .6)) * .4;
   let nx = vn(vec3f((q + vec2f(e, 0.)) * .25, t * .3)) + vn(vec3f((q + vec2f(e, 0.)) * .9, t * .6)) * .4;
   let nz = vn(vec3f((q + vec2f(0., e)) * .25, t * .3)) + vn(vec3f((q + vec2f(0., e)) * .9, t * .6)) * .4;
-  let n = normalize(vec3f((n0 - nx) * (.9 + rp), 1., (n0 - nz) * (.9 + rp)));
+  let n = normalize(vec3f((n0 - nx) * (.9 + .4 * rp), 1., (n0 - nz) * (.9 + .4 * rp)));
   let V = normalize(g.cam.xyz - p); let R = reflect(-V, n);
   let fr = .02 + .98 * pow(1. - sat(dot(n, V)), 5.);
   let b = bake(p); let sh = sunVis(p, b) * eagleSh(p);
@@ -615,7 +629,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
                 ss(.75, .55, depth / 3.) * ss(.45, .7, streak) * rp) * ss(.3, 1.5, depth);
   let fd = length(wrap2(p.xz - FALL_BASE));
   let plunge = ss(26., 4., fd) * (.55 + .45 * vn(vec3f(q * .7, t * 2.)));
-  let foam = max(max(ss(.6 + .5 * rp, .1, depth) * .6, rap * ss(.5, .75, vn(vec3f(q * 1.3, t * 1.5)))), plunge);
+  let foam = max(max(ss(.6, .1, depth) * .6, rap * ss(.5, .75, vn(vec3f(q * 1.3, t * 1.5)))), plunge);
   c = mix(c, vec3f(.85, .85, .8) * (SUNC * .35 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.3), foam * .75);
   return fin(atm(c, p));
 }

@@ -25,7 +25,7 @@ const rimRise = (x, z) => RIM * sstep(0, 900, wrapd(x - riverX(z))) * sstep(0, 9
 const RTYPES = {
   classic: [430, 1.0, 1.0, 1.0, 0.62, 0.45, 0.97, 1.0, 0.25, 0, 0, 0], // the canyon of run 1: spurs, buttes, side canyons
   narrows: [62, 0.22, 0, 0.25, 1.5, 0, 0, 1.0, 0.3, 6, 1, 0],          // a slot of orange sandstone: walls 330 m high, 15 m of river
-  basin: [1250, 1.1, 0.8, 0.7, 0.30, 0.55, 0.99, 1.6, 0.15, 0, 0, 1],  // wide open, full of tiered temples, clearer air
+  basin: [1250, 1.1, 0.8, 0.7, 0.30, 0.55, 0.99, 1.6, 0.15, -28, 0, 1],  // wide open, full of tiered temples, clearer air
   gorge: [600, 0.8, 1.0, 1.0, 0.72, 0.45, 0.95, 2.6, 1.0, 0, 0, 0],    // a deep inner gorge of grey schist, rapids, boulders
 };
 const RNAMES = Object.keys(RTYPES);
@@ -109,7 +109,7 @@ function plantTrees(H) {
     let p = 0, kind = 0, s = 1, hf = 1, list = out;
     if (h > top - 14 && sl < 0.4) {
       const pine = sstep(40, 90, R) * sstep(0.25, 0.5, vnoise(x / 400, 1.7, z / 400) + 0.2);
-      if (rnd() < pine) { p = 0.14 * sstep(0.3, 0.6, cl) + 0.006; s = rr(0.7, 1.25); hf = rr(0.85, 1.2); kind = 4; list = pines; }
+      if (rnd() < pine) { p = 0.14 * sstep(0.3, 0.6, cl) + 0.006; s = rr(0.6, 1.25); hf = rr(0.7, 1.25); kind = 4; list = pines; }
       else { p = 0.2 * sstep(0.35, 0.75, cl) + 0.02 * cl2; s = rr(0.45, 1.6); hf = rr(0.8, 1.3); kind = rnd() < 0.5 ? 0 : 1; }
     }
     else if (abs(h - espl) < 10 && sl < 0.35) { p = 0.07 * sstep(0.35, 0.7, cl); s = rr(0.5, 1.1); kind = 1; }
@@ -158,7 +158,7 @@ function meshPine(lo) {
   rseed(5);
   const clumps = lo ? [[0, 14.5, 0, 3.3, 3.8], [0.6, 19.5, 0.3, 2.0, 2.2]] : [];
   if (!lo) for (let i = 0; i < 22; i++) {
-    const t = i / 21, y = 9 + t * 13 + rr(-0.5, 0.5), a = i * 2.39 + rr(-0.4, 0.4), R = 3.6 * sin(PI * (0.2 + 0.75 * t)) * (1 - 0.3 * t);
+    const t = i / 21, y = 7 + t * 15 + rr(-0.5, 0.5), a = i * 2.39 + rr(-0.4, 0.4), R = 3.6 * sin(PI * (0.2 + 0.75 * t)) * (1 - 0.3 * t);
     clumps.push([cos(a) * R * 0.85, y, sin(a) * R * 0.85, 1.05 + 0.5 * (1 - t) + rr(-0.15, 0.2), 0.55]);
   }
   for (const [bx, by, bz, r, ry] of clumps) icosphere(m, lo ? 0 : 1, (x, y, z) => { const k = 0.78 + 0.4 * vnoise(x * 2 + bx * 3, y * 2 + by, z * 2); return [bx + x * r * k, by + y * r * ry * k, bz + z * r * k]; });
@@ -214,6 +214,12 @@ function buildFall() {
     for (let r = 0; r < rows; r++) for (let c = 0; c < 8; c++) m.quad(R[r][c], R[r][c + 1], R[r + 1][c + 1], R[r + 1][c]);
   };
   sheet(FALL_LIP, FALL_TOP + 0.3, FALL_DROP + 1.5, 6.5, 18, FALL_OUT);
+  // the spray: two loose rings of upright panels around the foot of the fall (kind 0.65; colour a = height share)
+  for (const [rad, hgt, seg] of [[7, 14, 10], [12, 22, 12]]) {
+    const R = [];
+    for (let r = 0; r <= 3; r++) { const row = []; for (let k = 0; k <= seg; k++) { const an = k / seg * TAU; m.c = [0.5, 0.5, 0.65, r / 3]; row.push(m.v(FALL_BASE[0] + cos(an) * rad * (1 + 0.25 * r / 3), YR - 0.5 + hgt * r / 3, FALL_BASE[1] + sin(an) * rad * (1 + 0.25 * r / 3), 0)); } R.push(row); }
+    for (let r = 0; r < 3; r++) for (let k = 0; k < seg; k++) m.quad(R[r][k], R[r][k + 1], R[r + 1][k + 1], R[r + 1][k]);
+  }
   for (let i = 0; i < NPOOL; i++) {
     const s0 = FALL_LIP + POOL * i, wl = FALL_TOP + POOLH * i, R = [];
     for (let s = s0; s <= s0 + POOL + 0.1; s += 5) {
@@ -268,16 +274,16 @@ function meshEagle() {
 // distance), look ahead m, look offset as a share of the wall distance (negative: the other side), look height, river].
 // Keys 1-8 jump to them; tools/views.sh renders them. (viewPose, the path: main.js, they need hAt)
 const VIEWS = [
-  [450, 1, 200, 0.75, 420, -0.55, 140, 0],    // 1 the classic canyon from half way up a wall
+  [560, 1, 160, 0.5, -380, -0.5, 110, 0],   // 1 the classic canyon: layered walls, looking down-river away from the sun
   [2050, 1, 60, 0.3, 200, -0.3, 70, 0],      // 2 the narrows: a slot 330 m deep
   [2300, 1, 95, 0.15, 150, 0, 130, 0],       // 3 the stone bridge where the narrows open
   [3500, -1, 260, 0.2, 500, -0.5, 180, 0],   // 4 the basin and its temples
   [5550, 1, 16, 0.25, 220, -0.2, 14, 0],     // 5 the rapids in the inner gorge
-  [7160, -1, 32, 0.4, 90, -0.8, 50, 0],      // 6 the waterfall from the side canyon
-  [1200, 1, 466, 1.5, 320, 1.15, 446, 0],    // 7 the high rim: ponderosa forest
-  [1050, 1, 150, 0.7, 300, -0.6, 170, 0],    // 8 up the canyon with the low sun ahead: the west wall in silhouette
+  [7140, -1, 50, 0.45, 110, -0.85, 55, 0],   // 6 the waterfall from the side canyon
+  [1200, 1, 470, 1.1, 250, -0.8, 350, 0],    // 7 the high rim: ponderosa forest at the edge
+  [1050, 1, 170, 0.8, 60, -2.2, 260, 0],     // 8 up the canyon with the low sun ahead: the west wall in silhouette
 ];
 // the benchmark path: from z = FLYZ0 along river A, one height above the river per 180 m: low through the narrows,
 // under the bridge, then up into the basin among the temples
 const FLYZ0 = 1500;
-const FLYH = [40, 35, 35, 40, 50, 60, 70, 110, 160, 210, 230, 220, 180, 150];
+const FLYH = [40, 35, 40, 55, 70, 85, 90, 110, 160, 210, 230, 220, 180, 150];
