@@ -241,7 +241,7 @@ fn haze(v: vec3f, low: f32) -> vec3f {
   let mu = dot(v, g.sun.xyz);
   // pale warm grey-blue away from the sun, dusty peach toward it, warmer and dustier low in the canyon
   // warm dusty air: tan-rose away from the sun, peach-gold toward it, a touch of blue only overhead
-  var c = mix(vec3f(.46, .42, .40), vec3f(.56, .42, .31), .25 + low * .55);
+  var c = mix(vec3f(.52, .45, .38), vec3f(.58, .43, .31), .25 + low * .55);
   c += vec3f(.80, .48, .22) * (pow(sat(mu * .5 + .5), 4.) * .45 + pow(sat(mu), 10.) * .35 + pow(sat(mu), 64.) * .8);
   c *= .92 + .12 * v.y;
   return c;
@@ -254,7 +254,7 @@ fn atm(col: vec3f, p: vec3f) -> vec3f {
   // air in the canyon's shadow scatters no sunlight: the haze there is dimmer and bluer
   let pm = mix(p, g.cam.xyz, .5);
   let shd = .5 * (sunVis(p, textureSampleLevel(tB, sR, p.xz / WL, 0.)) + sunVis(pm, textureSampleLevel(tB, sR, pm.xz / WL, 0.)));
-  let hz = haze(vd, low) * mix(vec3f(.60, .55, .55), vec3f(1.), shd);
+  let hz = haze(vd, low) * mix(vec3f(.62, .55, .50), vec3f(1.), shd);
   var c = col * T + hz * (1. - T);
   return mix(c, mix(hz, haze(vd, 0.), .5), ss(g.fogp.y * .82, g.fogp.y * .98, d));
 }
@@ -262,7 +262,7 @@ fn sky(v: vec3f) -> vec3f {
   let up = sat(v.y); let mu = dot(v, g.sun.xyz);
   var c = haze(v, 0.);
   let zen = vec3f(.15, .25, .45) + vec3f(.9, .45, .2) * pow(sat(mu), 6.) * .3;
-  c = mix(c, zen, ss(.02, .65, up) * .8);
+  c = mix(c, zen, ss(.08, .8, up) * .8);
   // thin high cloud streaks, lit gold from below by the low sun
   c += vec3f(40., 26., 14.) * ss(.99985, .99993, mu);
   return c;

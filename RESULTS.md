@@ -65,7 +65,11 @@ are the first job of the next session.
 
 Warm dusty tan-rose away from the sun and peach-gold toward it (no more lavender), thinner than the set distance at
 rim height and about twice as thick at the river, and a gentler fade with a middle depth plane. Not re-timed.
-Critic round 4: CRITIC4
+Critic round 4 (on the 400 and 600 m renders): highest severity down from critical to **major**. Toward the sun and down
+the gorge the haze now reads as warm dusty air with three or four depth planes, and 600 m is clearly better than 400 m.
+The major left was the haze away from the sun (rim and plateau views) still going cool grey-mauve. That side and the sky's
+horizon were warmed once more afterwards, checked by eye but not re-reviewed. Still open from the critic: stretched texture
+and sawtooth edges on steep faces, the near-black inner-gorge walls, the speckled platform slope, faint sky banding.
 
 ## What was built
 
