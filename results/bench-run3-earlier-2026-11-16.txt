@@ -1,0 +1,47 @@
+# session 1 (20:10), build before the critic fixes
+date: 2026-11-16 20:10  load: 7.58 7.56 7.28  unity: none  other Chrome processes: 32
+A1 run2 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":18.8,"over25":0},"gpu":{"n":3598,"avg":9.76,"p99":15.16,"max":20.06,"over25":0},"fps":60}
+A1 run2 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":21,"over25":0},"gpu":{"n":3597,"avg":11.34,"p99":15.95,"max":18.73,"over25":0},"fps":60}
+B1 run3 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.6,"max":21.2,"over25":0},"gpu":{"n":3598,"avg":7.45,"p99":10.81,"max":18.7,"over25":0},"fps":60}
+B1 run3 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":19.2,"over25":0},"gpu":{"n":3598,"avg":8.91,"p99":13.86,"max":19.31,"over25":0},"fps":59.9}
+A2 run2 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3597,"avg":16.67,"p99":17.7,"max":19.8,"over25":0},"gpu":{"n":3597,"avg":9.61,"p99":15.96,"max":20.4,"over25":0},"fps":59.9}
+B2 run3 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3599,"avg":16.67,"p99":18.7,"max":23.3,"over25":0},"gpu":{"n":3599,"avg":7.54,"p99":11.11,"max":14.34,"over25":0},"fps":60}
+B2 run3 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":19.1,"over25":0},"gpu":{"n":3597,"avg":9.42,"p99":15.91,"max":20.3,"over25":0},"fps":60}
+B run3 1080p fog 400: {"res":"1920x1080","fog":400,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":21.5,"over25":0},"gpu":{"n":3598,"avg":7.05,"p99":10.33,"max":14.17,"over25":0},"fps":60}
+B run3 1080p fog 250: {"res":"1920x1080","fog":250,"frame":{"n":3598,"avg":16.67,"p99":18.6,"max":18.8,"over25":0},"gpu":{"n":3598,"avg":6.61,"p99":9.99,"max":17.65,"over25":0},"fps":60}
+B run3 720p fog 250: {"res":"1280x720","fog":250,"frame":{"n":3597,"avg":16.67,"p99":18.7,"max":20.3,"over25":0},"gpu":{"n":3597,"avg":4.97,"p99":6.36,"max":9.68,"over25":0},"fps":59.9}
+B run3 scaler on a 2560x1600 screen, flight 1: {"screen":"2560x1600","share":1,"min":1,"last":"2560x1600","gpu":6.48,"fps":60,"late":0}
+B run3 scaler on a 2560x1600 screen, flight 2: {"screen":"2560x1600","share":1,"min":1,"last":"2560x1600","gpu":8.78,"fps":60,"late":0}
+done 20:23  load: 4.32 4.68 5.58
+
+# session 2 (20:38), build after critic round 2
+date: 2026-11-16 20:38  load: 9.43 6.96 6.28  unity: none  other Chrome processes: 33
+A1 run2 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":20.5,"over25":0},"gpu":{"n":3598,"avg":10.01,"p99":15.41,"max":17.88,"over25":0},"fps":60}
+A1 run2 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":18.8,"over25":0},"gpu":{"n":3598,"avg":11.14,"p99":14.93,"max":19.72,"over25":0},"fps":60}
+B1 run3 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.6,"max":18.8,"over25":0},"gpu":{"n":3597,"avg":7.67,"p99":11.77,"max":16.3,"over25":0},"fps":60}
+B1 run3 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3597,"avg":16.67,"p99":18.7,"max":19.5,"over25":0},"gpu":{"n":3597,"avg":10.18,"p99":16.07,"max":18.46,"over25":0},"fps":59.9}
+A2 run2 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":20.8,"over25":0},"gpu":{"n":3598,"avg":9.38,"p99":15.98,"max":21.61,"over25":0},"fps":60}
+B2 run3 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3596,"avg":16.67,"p99":17.7,"max":33,"over25":1},"gpu":{"n":3596,"avg":8.31,"p99":13.15,"max":18.53,"over25":0},"fps":59.9}
+B2 run3 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":20.1,"over25":0},"gpu":{"n":3598,"avg":10.69,"p99":15.76,"max":19.79,"over25":0},"fps":60}
+B run3 1080p fog 400: {"res":"1920x1080","fog":400,"frame":{"n":3597,"avg":16.67,"p99":17.7,"max":21.1,"over25":0},"gpu":{"n":3597,"avg":8.52,"p99":11.11,"max":13.49,"over25":0},"fps":59.9}
+B run3 1080p fog 250: {"res":"1920x1080","fog":250,"frame":{"n":3597,"avg":16.67,"p99":17.7,"max":17.7,"over25":0},"gpu":{"n":3597,"avg":7.74,"p99":10.71,"max":13.2,"over25":0},"fps":59.9}
+B run3 720p fog 250: {"res":"1280x720","fog":250,"frame":{"n":3598,"avg":16.67,"p99":17.6,"max":25.5,"over25":1},"gpu":{"n":3598,"avg":5.02,"p99":6.11,"max":6.42,"over25":0},"fps":60}
+B run3 scaler on a 2560x1600 screen, flight 1: {"screen":"2560x1600","share":1,"min":1,"last":"2560x1600","gpu":10.75,"fps":60,"late":0}
+B run3 scaler on a 2560x1600 screen, flight 2: {"screen":"2560x1600","share":1,"min":1,"last":"2560x1600","gpu":7.81,"fps":60,"late":0}
+done 20:51  load: 5.48 4.76 5.33
+
+# session 3 (20:56), build after critic round 3
+date: 2026-11-16 20:56  load: 4.32 4.93 5.26  unity: none  other Chrome processes: 31
+A1 run2 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3597,"avg":16.67,"p99":17.7,"max":18.5,"over25":0},"gpu":{"n":3597,"avg":12.31,"p99":15.5,"max":16.88,"over25":0},"fps":59.9}
+A1 run2 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":18.4,"over25":0},"gpu":{"n":3598,"avg":12.99,"p99":15.2,"max":15.97,"over25":0},"fps":60}
+B1 run3 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3597,"avg":16.67,"p99":17.7,"max":19.6,"over25":0},"gpu":{"n":3597,"avg":10.32,"p99":11.56,"max":11.69,"over25":0},"fps":59.9}
+B1 run3 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3597,"avg":16.67,"p99":17.6,"max":20.9,"over25":0},"gpu":{"n":3597,"avg":12.21,"p99":15.01,"max":16.71,"over25":0},"fps":59.9}
+A2 run2 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":22,"over25":0},"gpu":{"n":3598,"avg":12.37,"p99":15.4,"max":18.59,"over25":0},"fps":60}
+B2 run3 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":19.5,"over25":0},"gpu":{"n":3598,"avg":10.36,"p99":11.53,"max":13.32,"over25":0},"fps":59.9}
+B2 run3 2560x1600 fog 600: {"res":"2560x1600","fog":600,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":18.8,"over25":0},"gpu":{"n":3597,"avg":11.82,"p99":15.05,"max":17.72,"over25":0},"fps":60}
+B run3 1080p fog 400: {"res":"1920x1080","fog":400,"frame":{"n":3597,"avg":16.67,"p99":18.6,"max":18.8,"over25":0},"gpu":{"n":3597,"avg":9.43,"p99":10.88,"max":11.05,"over25":0},"fps":59.9}
+B run3 1080p fog 250: {"res":"1920x1080","fog":250,"frame":{"n":3597,"avg":16.67,"p99":18.7,"max":22.5,"over25":0},"gpu":{"n":3597,"avg":8.3,"p99":10.6,"max":10.73,"over25":0},"fps":59.9}
+B run3 720p fog 250: {"res":"1280x720","fog":250,"frame":{"n":3598,"avg":16.67,"p99":18.7,"max":18.8,"over25":0},"gpu":{"n":3598,"avg":5,"p99":6.09,"max":6.15,"over25":0},"fps":60}
+B run3 scaler on a 2560x1600 screen, flight 1: {"screen":"2560x1600","share":1,"min":1,"last":"2560x1600","gpu":7.36,"fps":60,"late":0}
+B run3 scaler on a 2560x1600 screen, flight 2: {"screen":"2560x1600","share":1,"min":1,"last":"2560x1600","gpu":6.78,"fps":60,"late":0}
+done 21:09  load: 5.58 4.75 4.61

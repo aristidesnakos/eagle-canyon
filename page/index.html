@@ -43,6 +43,14 @@ td, th { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lin
 .places img { width: 100%; border-radius: 8px; display: block; aspect-ratio: 16 / 9; object-fit: cover; }
 .places figcaption { font-size: 14px; color: var(--muted); }
 .places figcaption b { color: var(--fg); }
+.pairs { display: grid; gap: 18px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+.pair img { width: 100%; border-radius: 8px; display: block; aspect-ratio: 16 / 9; object-fit: cover; }
+.pair span { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.pair div { display: grid; gap: 4px; }
+.pair figcaption { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
+.pair figcaption b { color: var(--fg); }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
 details { border-top: 1px solid var(--line); padding-top: 20px; }
 summary { cursor: pointer; font-family: var(--display); font-size: 22px; font-weight: 600; }
 .q { display: grid; gap: 14px; padding-top: 24px; border-top: 1px solid var(--line); }
@@ -51,44 +59,52 @@ summary { cursor: pointer; font-family: var(--display); font-size: 22px; font-we
 
 <main>
   <section class="stack col">
-    <h1>Eagle Canyon, second flight</h1>
-    <p class="lede">You asked for more diversity in the terrain. The canyon is now four times bigger (8 km across) and changes as you fly: a slot, a stone bridge, a wide basin of temples, a rapids gorge, a waterfall, and a pine forest on a higher rim. One question below: fly for five minutes, then rate it again.</p>
+    <h1>Eagle Canyon, third flight</h1>
+    <p class="lede">You asked for much more resolution. The rock, the ground and the trees now carry fine detail that holds when you fly right up to them, the sun's shadows have a clean edge, and the game draws every pixel of this MacBook's screen. It also runs lighter than before. One question below.</p>
   </section>
 
-  <img class="hero" src="hero2.jpg" alt="The eagle flying out of the orange slot under the stone bridge, temples in the haze beyond">
+  <img class="hero" src="hero3.jpg" alt="The eagle in the orange slot, thin sandstone layers flowing along both walls, the stone bridge ahead">
 
   <section class="stack col">
     <h2>How to try it</h2>
     <p>Open this file in Chrome: <span class="path">~/Documents/eagle-canyon/index.html</span>, then click Fly.</p>
-    <p>Same controls as before. New: the keys <b>1</b> to <b>8</b> jump to the places below, so you can start anywhere. To find them yourself, follow the river: it leads through the slot, under the bridge and into the basin.</p>
+    <p>Same controls. Keys <b>1</b> to <b>8</b> jump to the places. To judge the detail, fly close along a wall, low over the forest floor on the high rim (key 7), and through the slot (key 2).</p>
   </section>
 
   <section class="stack">
-    <div class="col stack"><h2>The places</h2><p>Stills from the game, each with its key.</p></div>
-    <div class="places">
-      <figure><img src="r1.jpg" alt="The classic canyon: layered red walls and a tall butte, the river far below"><figcaption><b>1 · The canyon.</b> Where you start: layered walls, buttes, side canyons.</figcaption></figure>
-      <figure><img src="r2.jpg" alt="Inside the narrows: two sheer walls close together with a thin strip of sky"><figcaption><b>2 · The narrows.</b> A slot 330 m deep and about 15 m wide at the water.</figcaption></figure>
-      <figure><img src="r3.jpg" alt="A natural stone bridge spanning the gap between two walls"><figcaption><b>3 · The stone bridge.</b> Where the slot opens. Fly under it or over it.</figcaption></figure>
-      <figure><img src="r4.jpg" alt="A wide basin with rows of tiered rock temples fading into the haze"><figcaption><b>4 · The basin.</b> More than 2 km across, full of tiered temples.</figcaption></figure>
-      <figure><img src="r5.jpg" alt="Low over white rapids between dark gorge walls"><figcaption><b>5 · The gorge.</b> A deep inner gorge with rapids and boulders.</figcaption></figure>
-      <figure><img src="r6.jpg" alt="A waterfall falling from a side canyon into the river"><figcaption><b>6 · The waterfall.</b> From a side canyon with blue-green pools above it.</figcaption></figure>
-      <figure><img src="r7.jpg" alt="Tall ponderosa pines on a high plateau, the sun low in the haze"><figcaption><b>7 · The high rim.</b> 110 m higher on the east side, with a pine forest.</figcaption></figure>
-      <figure><img src="r8.jpg" alt="Looking up the canyon into the low sun, walls in silhouette"><figcaption><b>8 · Into the sun.</b> Up the canyon at the end of the afternoon.</figcaption></figure>
+    <div class="col stack"><h2>Before and after, up close</h2><p>The same spots in the last version and in this one. These are cut from the game at full size, not shrunk.</p></div>
+    <div class="pairs">
+      <figure class="pair"><div><span>Before</span><img src="b1.jpg" alt="Before: a canyon wall as smooth red and tan bands with soft dark smudges"></div><div><span>After</span><img src="a1.jpg" alt="After: the same wall with thin strata, ledges, joints and dark streaks"></div><figcaption><b>A canyon wall.</b> Thin strata, ledges and joints where there were soft bands.</figcaption></figure>
+      <figure class="pair"><div><span>Before</span><img src="b5.jpg" alt="Before: a basin cliff as blurred orange and red stripes"></div><div><span>After</span><img src="a5.jpg" alt="After: the same cliff as stacked beds broken into blocks by cracks"></div><figcaption><b>A cliff in the basin.</b> Beds broken into blocks.</figcaption></figure>
+      <figure class="pair"><div><span>Before</span><img src="b2.jpg" alt="Before: the slot wall as plain flat orange"></div><div><span>After</span><img src="a2.jpg" alt="After: the slot wall with thin sandstone layers sweeping along it"></div><figcaption><b>The slot.</b> Thin sandstone layers that flow along the wall. The walls themselves are smoother too: the stair-steps are gone.</figcaption></figure>
+      <figure class="pair"><div><span>Before</span><img src="b3.jpg" alt="Before: the gorge wall as flat dark brown"></div><div><span>After</span><img src="a3.jpg" alt="After: the gorge wall as grey rock with slanting layers and cracks"></div><figcaption><b>The gorge.</b> Grey rock with slanting layers, where it was flat dark brown.</figcaption></figure>
+      <figure class="pair"><div><span>Before</span><img src="b4.jpg" alt="Before: pines as smooth green blobs on orange poles over blurred ground"></div><div><span>After</span><img src="a4.jpg" alt="After: pines with needle texture and ragged edges over stony ground"></div><figcaption><b>The pine forest.</b> Needles, bark and stony ground.</figcaption></figure>
     </div>
   </section>
 
-  <section class="q col" id="q-keep">
-    <h2>After five minutes, how much do you want to keep flying?</h2>
-    <p>Fly for five minutes and stop whenever you like. Then pick: 1 means "I was done before five minutes", 5 means "I didn't want to stop". Last time you gave it 3.</p>
-    <p class="rec">The prediction to beat: 4 or more</p>
-    <div class="choices" role="radiogroup" aria-label="Want to keep flying, 1 to 5">
-      <label><input type="radio" name="keep" id="keep-1" value="1"> 1</label>
-      <label><input type="radio" name="keep" id="keep-2" value="2"> 2</label>
-      <label><input type="radio" name="keep" id="keep-3" value="3"> 3</label>
-      <label><input type="radio" name="keep" id="keep-4" value="4"> 4</label>
-      <label><input type="radio" name="keep" id="keep-5" value="5"> 5</label>
+  <section class="stack">
+    <div class="col stack"><h2>The places now</h2><p>New stills, each with its key.</p></div>
+    <div class="places">
+      <figure><img src="r1.jpg" alt="The classic canyon: layered walls and a tall banded butte"><figcaption><b>1 · The canyon.</b> Layered walls, buttes, side canyons.</figcaption></figure>
+      <figure><img src="r2.jpg" alt="Inside the narrows: two orange walls with flowing layers and a thin strip of sky"><figcaption><b>2 · The narrows.</b> A slot 330 m deep.</figcaption></figure>
+      <figure><img src="r3.jpg" alt="A natural stone bridge spanning the gap between two orange walls"><figcaption><b>3 · The stone bridge.</b> Fly under it or over it.</figcaption></figure>
+      <figure><img src="r4.jpg" alt="A wide basin with temples in the haze and a banded red cliff close by"><figcaption><b>4 · The basin.</b> More than 2 km across.</figcaption></figure>
+      <figure><img src="r5.jpg" alt="Low over a green river with boulders between grey gorge walls"><figcaption><b>5 · The gorge.</b> Rapids and boulders. The river now widens and narrows.</figcaption></figure>
+      <figure><img src="r6.jpg" alt="A waterfall falling from a side canyon into the river"><figcaption><b>6 · The waterfall.</b></figcaption></figure>
+      <figure><img src="r7.jpg" alt="Ponderosa pines on a high plateau, the sun low in the haze"><figcaption><b>7 · The high rim.</b> The pine forest.</figcaption></figure>
+      <figure><img src="r8.jpg" alt="A sunlit orange cliff on the left, the low sun and hazy buttes beyond"><figcaption><b>8 · Into the sun.</b> Past a sunlit cliff in the basin.</figcaption></figure>
     </div>
-    <textarea id="keep-note" placeholder="Which place did you like most? What made you stop, or keep going? (optional)"></textarea>
+  </section>
+
+  <section class="q col" id="q-sharp">
+    <h2>Is this the resolution you meant?</h2>
+    <p>"More resolution" can mean finer detail on things, or a crisper picture overall. This run did both, but mostly the first. Fly for a few minutes, close to walls and far from them, then pick.</p>
+    <div class="choices" role="radiogroup" aria-label="Is this the resolution you meant">
+      <label><input type="radio" name="sharp" id="sharp-yes" value="yes"> Yes, this is it</label>
+      <label><input type="radio" name="sharp" id="sharp-more" value="more"> Better, but I want more</label>
+      <label><input type="radio" name="sharp" id="sharp-other" value="other"> I meant something else</label>
+    </div>
+    <textarea id="sharp-note" placeholder="Where does it still look soft or wrong? Or what did you mean? (optional)"></textarea>
     <button id="save" type="button">Save my answer</button>
     <p id="status" aria-live="polite">Loading saved answer…</p>
   </section>
@@ -96,19 +112,28 @@ summary { cursor: pointer; font-family: var(--display); font-size: 22px; font-we
   <section class="q" id="numbers">
     <div class="col stack">
       <h2>What we measured</h2>
-      <p>Predictions written before building, measured on this MacBook in Chrome at full 1080p with the haze at 600 m.</p>
+      <p>Predictions written before building, measured on this MacBook in Chrome with the haze at 600 m. The last version was timed again in the same session, so the two can be compared.</p>
     </div>
     <div class="scroll"><table>
 <thead><tr><th>#</th><th>Prediction</th><th>Measured</th><th>Result</th></tr></thead>
 <tbody>
-<tr><td>R1</td><td>After five minutes you rate "keep flying" 4 or more</td><td>Your answer above</td><td>Open</td></tr>
-<tr><td>R2</td><td>Full 1080p at 600 m haze, through the new places: 60 fps, GPU 12 ms or less, no frame over 25 ms</td><td>60 fps; GPU 10.8 ms on average (it was 8.3 before the new places); worst frame 19.5 ms</td><td class="pass">Pass</td></tr>
-<tr><td>R3</td><td>The file stays 300 KB or less</td><td>72 KB (29 KB zipped)</td><td class="pass">Pass</td></tr>
-<tr><td>R4</td><td>Four times the map for at most 2.5 times the memory, menu within 5 s</td><td>1.5 times the memory; the menu appears after 2.2 s</td><td class="pass">Pass</td></tr>
-<tr><td>R5</td><td>An image reviewer finds nothing worse than "minor"</td><td>After six rounds, nothing broken, but 11 "moderate" flaws left (gorge walls too brown, stretched texture on some cliffs, a few others). They are the next run's first job</td><td class="fail">Miss</td></tr>
+<tr><td>S1</td><td>Full 1080p: 60 fps, GPU 12 ms or less, and no slower than the last version</td><td>60 fps; GPU 10.4 and 9.9 ms. The last version in the same session: 12.6 and 12.4 ms. So about 2 ms lighter</td><td class="pass">Pass</td></tr>
+<tr><td>S2</td><td>This MacBook's own screen (2560×1600), every pixel: 60 fps, and the game stays at 100% of the screen</td><td>60 fps; GPU 12.5 and 11.8 ms; it stayed at 100% in every test flight. The last version capped itself at 90% and often sat at 66%</td><td class="pass">Pass</td></tr>
+<tr><td>S3</td><td>A fine-detail score of 2.0 or more on eight close-ups (it was 0.78), and 1.3 or more on the eight places (it was 0.85)</td><td>Close-ups 1.76; places 1.87</td><td class="fail">Miss on the close-ups</td></tr>
+<tr><td>S4</td><td>A reviewer shown eight before/after pairs with the sides shuffled picks the new one as sharper in 7 or more</td><td>8 of 8, twice, with two different reviewers</td><td class="pass">Pass</td></tr>
+<tr><td>S5</td><td>The file stays 300 KB or less</td><td>84 KB (33 KB zipped)</td><td class="pass">Pass</td></tr>
+<tr><td>S6</td><td>Memory within the same limit as before, menu within 5 s</td><td>656 MB against a limit of 850; the menu appears after 2.5 s</td><td class="pass">Pass</td></tr>
+<tr><td>S7</td><td>An image reviewer finds nothing worse than "minor"</td><td>After five rounds: nothing broken, but 10 "moderate" flaws. They have changed in kind. Before, they were about blur. Now most are about the new detail looking drawn or built (rock joints like masonry, the slot like polished wood) and about shapes (the bridge is a beam, the pines are stacked blobs)</td><td class="fail">Miss</td></tr>
 </tbody></table></div>
   </section>
 
+  <details>
+    <summary>Second flight (your answer is kept)</summary>
+    <div class="stack col" style="margin-top:16px">
+      <p>The world became four times bigger with a slot, a stone bridge, a basin, a gorge, a waterfall and a pine forest. Keep flying: you gave it 4 of 5 (it was 3), which met the prediction.</p>
+      <img class="hero" src="hero2.jpg" alt="The second version: the eagle flying out of the slot under the stone bridge">
+    </div>
+  </details>
   <details>
     <summary>First flight (your answers are kept)</summary>
     <div class="stack col" style="margin-top:16px">
@@ -119,19 +144,19 @@ summary { cursor: pointer; font-family: var(--display); font-size: 22px; font-we
 </main>
 
 <script>
-// run 2 saves to its own doc; the first run's answers stay in answers/eagle-1
-const DOC = 'answers/eagle-2';
+// run 3 saves to its own doc; earlier answers stay in answers/eagle-1 and answers/eagle-2
+const DOC = 'answers/eagle-3';
 const $ = (id) => document.getElementById(id);
 const status = $('status');
 let db = null;
 function read() {
-  const k = document.querySelector('input[name="keep"]:checked');
-  return { keep: k ? +k.value : null, keepNote: $('keep-note').value };
+  const k = document.querySelector('input[name="sharp"]:checked');
+  return { sharp: k ? k.value : null, sharpNote: $('sharp-note').value };
 }
 function fill(a) {
   if (!a) return;
-  if (a.keep) { const i = $('keep-' + a.keep); if (i) i.checked = true; }
-  $('keep-note').value = a.keepNote || '';
+  if (a.sharp) { const i = $('sharp-' + a.sharp); if (i) i.checked = true; }
+  $('sharp-note').value = a.sharpNote || '';
 }
 (async () => {
   const timer = setTimeout(() => { if (!db) status.textContent = 'Saving is not available in this view. You can still read the page.'; }, 10000);

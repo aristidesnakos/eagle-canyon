@@ -171,16 +171,16 @@ const vbM = { arrayStride: 20, attributes: [A(0, 0, 'float32x3'), A(1, 12, 'snor
 const ibT = { arrayStride: 32, stepMode: 'instance', attributes: [A(3, 0, 'float32x4'), A(4, 16, 'float32x4')] };
 const scenePipe = (m, buffers, o = {}) => device.createRenderPipeline({ layout: pl0,
   vertex: { module: m, entryPoint: o.vs || 'vs', buffers, constants: o.constants },
-  fragment: { module: m, entryPoint: 'fs', targets: [{ format: HDR }] },
+  fragment: { module: m, entryPoint: 'fs', constants: o.fconst, targets: [{ format: HDR, blend: o.blend ? { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one' } } : undefined }] },
   primitive: { topology: o.strip ? 'triangle-strip' : 'triangle-list', cullMode: o.cull || 'none' },
-  depthStencil: { format: ZFMT, depthWriteEnabled: !o.sky, depthCompare: o.sky ? 'equal' : 'greater' }, multisample: { count: AA, alphaToCoverageEnabled: !!o.a2c && AA > 1 } });
+  depthStencil: { format: ZFMT, depthWriteEnabled: !o.sky && !o.blend, depthCompare: o.sky ? 'equal' : 'greater' }, multisample: { count: AA, alphaToCoverageEnabled: !!o.a2c && AA > 1 } });
 const TN = 160; // cells per side of each terrain level
 const pTerrain = scenePipe(mod(W_TERRAIN), [], { constants: { N: TN } });
 const pRiver = scenePipe(mod(W_RIVER), [], { strip: true });
-const pTree = scenePipe(mod(W_TREE), [vbM, ibT]);
+const pTree = scenePipe(mod(W_TREE), [vbM, ibT], { a2c: true });
 const mEagle = mod(W_EAGLE), pEagle = scenePipe(mEagle, [vbM]), pBirds = scenePipe(mEagle, [vbM, ibT], { vs: 'vsB' });
 const pSky = scenePipe(mod(W_SKY), [], { sky: true });
-const pRock = scenePipe(mod(W_ROCKM), [vbM]), pFall = scenePipe(mod(W_FALL), [vbM], { a2c: true });
+const pRock = scenePipe(mod(W_ROCKM), [vbM]), mFall = mod(W_FALL), pFall = scenePipe(mFall, [vbM], { a2c: true }), pSpray = scenePipe(mFall, [vbM], { blend: true, fconst: { SPRAY: 1 } });
 const bglBlit = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: SS.FRAGMENT, texture: {} }, { binding: 1, visibility: SS.FRAGMENT, sampler: {} }] });
 const plBlit = device.createPipelineLayout({ bindGroupLayouts: [bglBlit] });
 const mBlit = mod(W_BLIT);
@@ -194,7 +194,7 @@ const pPost = device.createRenderPipeline({ layout: 'auto', vertex: { module: mP
 // ---------------------------------------------------------------- render targets (rebuilt on resize)
 // The scene is drawn at `pix` pixels and scaled to the window; frame() tunes `pix` for 60 fps (Abyssal Garden's
 // scheme, without its draw-distance step: here the draw distance is the fog, a design value, not a quality knob).
-const PIXMAX = 2560 * 1440, PIXMIN = mob ? 25e4 : 5e5;
+const PIXMAX = 2560 * 1600, PIXMIN = mob ? 25e4 : 5e5;
 let FW = 0, FH = 0; // dev: a forced drawing size (EC.settle)
 let W = 0, Hh = 0, DW = 0, DH = 0, pix = +SV[1] || (LV > 1 ? 41e4 : mob ? 1280 * 720 : PIXMAX), dynN = 0, dynT = 0, dynG = 0, dynGN = 0, dynBad = 0, dynOk = 0, dynWait = 3;
 let passScene, passPost, bgPost, bloomPass = [], bloomBG = [], targets = [];
@@ -331,6 +331,7 @@ function render() {
   r.setPipeline(pFall); r.drawIndexed(FALL.ib.length, 1, FALL.i0, FALL.v0, 0);
   r.setPipeline(pRiver); r.draw(4);
   r.setPipeline(pSky); r.draw(3);
+  r.setPipeline(pSpray); r.drawIndexed(FALL.ib.length, 1, FALL.i0, FALL.v0, 0); // after the sky: it writes no depth
   r.end();
   for (let i = 0; i < bloomPass.length; i++) {
     r = e.beginRenderPass(bloomPass[i]); r.setPipeline(i === 0 ? pDown0 : i < NB ? pDown : pUp); r.setBindGroup(0, bloomBG[i]); r.draw(3); r.end();

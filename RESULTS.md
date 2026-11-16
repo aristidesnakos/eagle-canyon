@@ -226,10 +226,98 @@ time won back goes to drawing every pixel of the screen.
 
 | # | Prediction | Measured | Result |
 |---|---|---|---|
-| S1 | Full 1080p, Medium, haze 600 m, fly-through: ≥ 60 fps, GPU ≤ 12 ms average and p99 ≤ 16.7 ms, no frame over 25 ms. And no slower than the run 2 build timed in the same session (today, before building: 8.8 ms average, p99 14.4; run 2's own log said 10.8 and 17.3, so sessions differ by 2 ms) | | |
-| S2 | This Mac's own screen, 2560×1600, every pixel: ≥ 60 fps, GPU ≤ 12.7 ms average (run 2 build today: 12.7, p99 15.2), and the automatic scaler ends the flight at 100% of the screen (run 2 build: 66% and 90% in two flights) | | |
-| S3 | Fine-detail score, mean of the 8 close-up stills: ≥ 2.0 (run 2 build: 0.78). Mean of the 8 viewpoints: ≥ 1.3 (run 2 build: 0.85) | | |
-| S4 | Blind pairs: a critic shown 8 close-up pairs (run 2 and run 3, sides shuffled, no labels) picks run 3 as the sharper, more detailed one in ≥ 7 of 8 | | |
-| S5 | `index.html` ≤ 300 KB (expected about 90 KB) | | |
-| S6 | Test Chrome GPU process ≤ 850 MB (run 2: 519 MB); menu ≤ 5 s after load (run 2: 2.2 s) | | |
-| S7 | Visual critic, final round: the gate is again "nothing above minor". My honest expectation: it stops at moderate a third time, with 4 or fewer moderate items (run 2 ended with 10) | | |
+| S1 | Full 1080p, Medium, haze 600 m, fly-through: ≥ 60 fps, GPU ≤ 12 ms average and p99 ≤ 16.7 ms, no frame over 25 ms. And no slower than the run 2 build timed in the same session (today, before building: 8.8 ms average, p99 14.4; run 2's own log said 10.8 and 17.3, so sessions differ by 2 ms) | 59.9 to 60 fps; GPU **10.4 and 9.9 ms** average (p99 11.6 and 11.5, max 12.9); frame max 18.9 ms, 0 frames over 25 ms. The run 2 build in the same session: 12.6 and 12.4 ms (p99 15.3 and 15.7). In the three earlier sessions run 3 was also about 2 ms lower each time (7.5 against 9.7, 8.0 against 9.7, 10.3 against 12.3) | **Pass** |
+| S2 | This Mac's own screen, 2560×1600, every pixel: ≥ 60 fps, GPU ≤ 12.7 ms average (run 2 build today: 12.7, p99 15.2), and the automatic scaler ends the flight at 100% of the screen (run 2 build: 66% and 90% in two flights) | 59.9 fps; GPU **12.5 and 11.8 ms** average (p99 15.4 and 16.0); the run 2 build in the same session: 13.8 ms. The scaler ended both flights at **100%** of the screen (2560×1600), as it did in all 8 flights across the four sessions | **Pass**, by a narrow margin on the GPU average |
+| S3 | Fine-detail score, mean of the 8 close-up stills: ≥ 2.0 (run 2 build: 0.78). Mean of the 8 viewpoints: ≥ 1.3 (run 2 build: 0.85) | Close-ups **1.76** (from 0.78). Viewpoints **1.87** (from 0.85) | **Miss** on the close-ups, **pass** on the viewpoints |
+| S4 | Blind pairs: a critic shown 8 close-up pairs (run 2 and run 3, sides shuffled, no labels) picks run 3 as the sharper, more detailed one in ≥ 7 of 8 | **8 of 8**, twice (two fresh judges, two shuffles), all but one pick at high confidence | **Pass** |
+| S5 | `index.html` ≤ 300 KB (expected about 90 KB) | 83.7 KB (32.9 KB gzipped) | **Pass** |
+| S6 | Test Chrome GPU process ≤ 850 MB (run 2: 519 MB); menu ≤ 5 s after load (run 2: 2.2 s) | GPU process 656 MB (peak 677 MB) in a fresh test Chrome, measured as in run 2 (an earlier run 3 build measured 556 MB, peak 668, the same way); menu 2.4 to 2.5 s after load | **Pass** |
+| S7 | Visual critic, final round: the gate is again "nothing above minor". My honest expectation: it stops at moderate a third time, with 4 or fewer moderate items (run 2 ended with 10) | Final round (5): highest severity **moderate**, no major or critical; **10** moderate and 10 minor items. Rounds 1, 3 and 4 each had majors, fixed before the next round | **Miss** on the gate, and on my own expectation of four or fewer |
+
+Raw logs: `results/bench-run3-2026-11-16.txt` (the final build) and `results/bench-run3-earlier-2026-11-16.txt` (three
+earlier sessions the same evening, on earlier run 3 builds). `tools/bench3.sh` times the run 2 build and the run 3
+build in turn (A, B, A, B), because the same build measures 2 ms apart between sessions.
+
+**Conditions.** Unity not running, one copy of the game in the test Chrome. **Not quiet:** Ari's own Chrome stayed open
+(about 30 processes) and the load average was 7.3 at the start. The critic subagents ran during parts of the timing
+(they only read images, but they are not nothing). I didn't close Ari's browser.
+
+**Notes on S1 and S2.** GPU time on this Mac moves with the session (the GPU runs slower when it has less to do), so
+only the same-session comparison means much. In all four sessions run 3 was about 2 ms under run 2 at 1080p. The game's
+resolution cap was also raised from 2560×1440 to 2560×1600, so on this screen it now draws every pixel, where run 2
+could not pass 90%.
+
+**Note on S3.** The close-up score more than doubled (0.78 to 1.76) but stopped short of the 2.0 I predicted. The
+slot walls are meant to be smooth, and walls in full shade carry little contrast. An earlier build of this run scored
+higher with harsher patterns, which the critic read as masonry and wood grain, so I did not chase the number.
+
+**Note on S4.** Run twice with fresh judges: first on the round 3 stills (the shuffle happened to put run 3 on the
+left in 7 of 8), then on the round 4 stills with a forced 4/4 split. 8 of 8 both times. Both judges also said the new
+detail has faults of its own: joints that form an even crackle net, and a hint of wood grain in the slot.
+
+## What was built
+
+- **Rock detail from textures made at load.** Three 1024² tiles are drawn in code when the page opens (18 MB with
+  mips): bedded rock with joints, thin strata, pits and grain; cross-bedded sandstone; stony soil. The shaders lay them
+  onto the world by position (cliffs from the side with height as one axis, so beds stay level round a butte; flats from
+  above) at three sizes each (about 5, 23 and 97 m), and the GPU filters them with anisotropy. They replace about a dozen
+  noise evaluations per pixel, which is where the 2 ms came from.
+- **Every region its own rock.** The gorge's schist is the bedded tile turned 58 degrees at smaller sizes, grey with
+  pale veins. The narrows use the sandstone tile with one mapping along the river, so the thin layers flow unbroken.
+- **The slot's walls reshaped.** Their cliffs were thinner than one 2 m height texel, which is what made the vertical
+  stair-steps. In the narrows the wall is now one steep, gently waved slope.
+- **Sun shadows at full resolution.** Shadow heights every 2 m (were 4 m), with an edge about 2 m wide near the camera
+  (was about 9 m), wider on steep faces and with distance. Sky light, rim rise, travertine and the region values moved
+  into one small map, so no pixel looks the regions up any more.
+- **Trees.** Needle and bark texture from the same tiles, ragged crown edges, less red under the crowns, lumpier pine
+  crowns, and real shadows: a trunk line and a crown patch per tree, where run 2 had one blurred ellipse.
+- **From the run 2 critic's list:** grey gorge rock; flowing bands in the slot; flat-topped basin temples; the gorge
+  river widens into pools (0 of 512 samples dry on either river); smooth blended spray in place of the stipple; a
+  classic viewpoint that is not lost in haze; far sunlit rock dimmed to the haze but keeping its own colour.
+- **Tools:** `tools/close.sh` (eight close-up stills), `tools/sharp.sh` (the fine-detail score), `tools/bench3.sh`,
+  and in `dev.html` `EC.gpu`, `EC.force`, `EC.settle`, `EC.look`.
+
+## Visual critic, run 3
+
+Five rounds, each a fresh subagent that saw only renders: the eight viewpoints, eight close-ups and 14 frames of the
+7 s clip through the slot and under the bridge. Same brief and severity wording as run 2's rounds 3 to 6, plus the
+close-ups and three new risks to check (man-made-looking patterns, noise, places still blurry).
+
+| Round | Highest | What it said, in short | Done after it |
+|---|---|---|---|
+| 1 | Major (2) | Gorge and waterfall walls still soft streaks up close; vertical stair-stepped strips on the slot walls. 9 moderates | Schist from the bedded tile; slot walls reshaped and mapped along the river; thin strata; softer shadow edge on steep faces |
+| 2 | **Moderate** (10) | "Line work is now crisp almost everywhere, but it sits on a soft base": no grain between the lines; trees behind the rock in finish; the same squiggle motif everywhere | Grain and pitting; straighter beds; no soil cracks; slopes take detail from the side; tree foot shadows |
+| 3 | Major (1) | Schist cracks blown up into wide ribbons with a comb-like edge | Smaller tiles for the schist; the two larger tiles never magnified; detail follows the drawn mesh far away; bedded rock on the bridge |
+| 4 | Major (1) | "Trees cast no shadows; the forest looks like models on a table" (rounds 2 and 3 had called this moderate) | Trunk-and-crown tree shadows; sparser, straighter joints; no dark ring round stones; stronger bark |
+| 5 (final) | **Moderate** (10) | No major or critical. All eight places read and differ; the clip changes place clearly | Nothing: this is where the run stops |
+
+Open items from round 5, all moderate:
+
+- Joints on the classic and basin cliffs read as masonry, most of all on round towers.
+- The slot's sandstone reads as polished wood: it wants sand grain and broken line runs.
+- Schist walls look smeared along the foliation, with plank-like grooves.
+- The stone bridge is a box beam, not a rounded arch.
+- The wall beside the waterfall is bland.
+- Pines are stacked blobs, not ponderosa.
+- Mid-distance forms go pale cream in the haze and lose their strata.
+- The haze swallows the slot's far wall at short range.
+- Red ground near the camera in the basin is flat.
+- The rim edge shows a kerb-like saw-tooth strip.
+
+Minor: dotted mesh where the river plane hands over to the far water, a uniform pale outline along the river, a
+ribbon-like waterfall, thin spikes, track-like lines on gentle ground, colour blotches that ignore the strata, a red
+fringe on sun/shade edges, a few squiggle lines, pale flecks on one dark slope, the eagle hidden in one close-up.
+
+**Not met, again.** The gate was "nothing above minor"; my own expectation was moderate with four or fewer items. It
+ended at moderate with ten. What changed is what the items are about: run 2's were blur, stretched texture and wrong
+colour; run 3's are mostly about the new detail looking drawn or built (masonry joints, wood grain, plank grooves),
+plus the shapes the detail sits on (the bridge, the towers, the pines). Severities drifted between rounds as in run 2
+(tree shadows were moderate, moderate, then major). The next step for the look is shape, not more texture: a real arch,
+stepped temples, tree models, and joints that follow the rock instead of a grid.
+
+## What this run taught
+
+- **"More resolution" was detail and shadow edges, not pixel count.** The run 2 build could already hold 60 fps at
+  every pixel of this screen. The picture was soft because nothing in it was finer than half a metre.
+- **Detail textures made in code beat noise per pixel twice over:** sharper, and cheaper.
+- **A sharpness number is easy to raise with ugly patterns.** The blind pairs and the critic were the useful measures.
