@@ -97,8 +97,99 @@ Chrome's GPU process uses 346 MB (peak 488 MB).
 
 | # | Prediction | Measured | Result |
 |---|---|---|---|
-| R1 | Ari, after 5 minutes: "keep flying" 4/5 or more | | |
-| R2 | Full 1080p, Medium, haze 600 m, fly-through through the new places: ≥ 60 fps average, GPU ≤ 12 ms average, no frame over 25 ms | | |
-| R3 | `index.html` ≤ 300 KB (expected about 80 KB) | | |
-| R4 | The 8 km world costs at most 2.5 times the memory: test Chrome GPU process ≤ 850 MB, menu ≤ 5 s after load | | |
-| R5 | Visual critic, final round: nothing above minor | | |
+| R1 | Ari, after 5 minutes: "keep flying" 4/5 or more | Waiting for Ari: the question is on his page, saved to `answers/eagle-2` | Open |
+| R2 | Full 1080p, Medium, haze 600 m, fly-through through the new places: ≥ 60 fps average, GPU ≤ 12 ms average, no frame over 25 ms | 59.9 fps; GPU 10.81 ms average (p99 17.29, max 19.77); frame max 19.5 ms, 0 frames over 25 ms | **Pass** |
+| R3 | `index.html` ≤ 300 KB (expected about 80 KB) | 72.1 KB (28.8 KB gzipped) | **Pass** |
+| R4 | The 8 km world costs at most 2.5 times the memory: test Chrome GPU process ≤ 850 MB, menu ≤ 5 s after load | GPU process 519 MB (peak 648 MB) in a fresh test Chrome, 1.5 times the baseline; menu 2.2 s after load (3 reloads: 2.32, 2.17, 2.24 s) | **Pass** |
+| R5 | Visual critic, final round: nothing above minor | Highest severity **moderate** after six rounds (no major or critical); 11 moderate items left, listed below | **Miss** |
+
+Raw log: `results/bench-run2-2026-11-16.txt`. Same conditions as run 1: Unity not running, one copy of the game, but Ari's
+own Chrome open (about 900 MB) and a load average of about 3.7. The benchmark path now starts in the classic canyon,
+runs the narrows, passes under the stone bridge and climbs into the basin.
+
+**Notes on R2.** GPU time rose from 8.3 ms (run 1, haze 600 m) to 10.8 ms. The cost is per-pixel shading (region lookup,
+smoother far normals, the far-water check), not the bigger world. Haze distance is still a weak lever: 250 m saves
+0.7 ms. The slowest 1% of GPU frames (17.3 ms) is now over a 60 Hz frame. Frames still arrived on time in the run, but
+there is less headroom than in run 1, and the next feature should be timed before it is kept. The 720p kill-line run:
+60 fps, GPU 7.5 ms.
+
+**Notes on R4.** The heights doubled in each direction (4096² over 8 km, still 2 m per texel). Kept down by baking sun
+and sky at half resolution and putting normals in their own small texture with mips. Generation runs in four GPU strips
+so no single job runs long.
+
+## What was built
+
+Two rivers now run north to south through 8 km, each through a chain of regions that blend over 350 m:
+
+- **Classic** (run 1's canyon): spurs, buttes, side canyons.
+- **The narrows:** a slot of smooth orange sandstone, 330 m deep, about 15 m of river.
+- **The basin:** 2.5 km across, tiered temples, clearer air while you're in it.
+- **The gorge:** a squeezed inner gorge of grey-violet schist, with rapids, standing waves and boulders.
+
+River A runs classic, narrows, basin, gorge, classic; river B runs the same kinds in another order.
+
+Two landmarks on river A:
+- **The stone bridge**, a rock arch where the narrows open, which you can fly under or over (with collision).
+- **The waterfall**, dropping from a hanging side canyon of blue-green travertine pools, with spray at its foot.
+
+The plateau east of river A rises 110 m (the rock layers stretch to match) and carries **ponderosa pine forest** with
+meadows: 41,000 pines on Medium, a new mesh.
+
+Also: eight viewpoints (keys 1–8), a chase camera that no longer pops over the rim from inside the slot, and river
+channels that never run dry (a check in `dev.html`, `EC.dry()`: 0 of 512 samples dry on river B, 1 on river A).
+
+### Fixes for the run 1 critic's open items
+
+- **Stretched texture on steep faces:** steep and far ground now reads a smoother normal from the normal mips. Better,
+  but it is still the most common remaining complaint.
+- **Saw-tooth edges:** each terrain cell splits along the diagonal that follows the rock; far shadow edges soften with
+  distance. Remaining: small steps on some slot rims.
+- **Near-black inner-gorge walls:** bounce light now comes from the sunlit walls across the canyon. The darkest wall
+  measured about RGB 40/32/33, "readable" in every round from 3 on.
+- **Speckled slope:** soil and rock colour now come from the smooth normal, not the bumped one.
+- **Sky banding:** a stronger triangular dither. No banding found in any of the six rounds.
+
+### Bugs found while verifying
+
+- An isolated-pinnacle pass after generation.
+- The far river drawn from the full-resolution heights. In the basin the river had shown as a stepped dashed line.
+  There were two causes: the wall noise had lifted parts of the bed above the water, and the coarse mesh can't hold a
+  narrow channel.
+- The noise hash was nearly symmetric in x and y, which mirrored every noise field about the world's diagonal and left
+  a crease along it.
+- Tree shadows smeared down steep walls.
+
+## Visual critic, run 2
+
+Six rounds. Each round was a fresh subagent that saw only the eight viewpoint stills (1920×1080, haze 600 m) and 14
+frames of a 7 s clip, never the code. From round 3 on, the brief defined the severities ("major" = a player would notice
+within seconds and find it wrong or broken), because the first rounds used them loosely.
+
+| Round | Highest | What it said, in short | Done after it |
+|---|---|---|---|
+| 1 | Major | Slot, gorge, bridge and waterfall views all looked like the same two brown walls; the basin dissolved in haze; spikes in the slot (they were boulders); cream "snowy" tops; the clip never reached the bridge | A colour and rock style per region, clearer basin air, domed boulders, warmer tops, stronger bounce light, rapids |
+| 2 | Major | The clip missed the bridge (it sat above the frame); basin temples read as spikes; saw-tooth shadow edges far away | Path and clip through the bridge, tiered temples, softer far shadows, waterfall spray, new viewpoints |
+| 3 | **Moderate** | All eight places read and differ; the clip shows slot, bridge, open canyon. Left: weak classic view, shadow speckle under the bridge, stepped basin river, gorge too brown, card-like spray | Normal mips (also fixed the GPU budget), bridge shadow, cooler schist, viewpoints |
+| 4 | Major | One major: the basin river drawn as a staircase | Far water from the full-resolution heights, pinnacle pass |
+| 5 | Major | The same staircase line | Traced to the noise hash's mirror seam and dry river stretches; fixed both |
+| 6 (final) | **Moderate** | Nothing broken. All eight places read; the clip changes place clearly | See below |
+
+Open items from round 6, all moderate:
+
+- The gorge walls are still dark maroon rather than grey schist.
+- Stretched or chevron texture on some steep faces (views 4 and 8).
+- A hard light edge on one end of the bridge.
+- Vertical stripes on the slot walls, which want flowing sandstone bands.
+- Dark smears on a bench face after the bridge.
+- A curb-like line along the rim edge in view 7.
+- Basin temples still too peaked.
+- The classic view's mid wall lost in haze.
+- A canal-straight gorge river.
+- Dither stipple on the waterfall spray.
+
+Minor: a stepped far line in the basin, the flat cut the waterfall leaves from, rust-red sunlit pine tops, ground
+mottle, rim steps, the eagle's wingtips edge-on.
+
+**Not met:** the gate was "nothing above minor". It reached moderate (from major) and stopped there. The open items
+above are the next run's first job. The critics' severities also drifted between rounds (the same river was moderate
+in round 3 and major in round 4), so one more round would not have proven much without the changes.
