@@ -80,3 +80,25 @@ banks and foam. Several thousand pinyon, juniper, bushes and tamarisk (Medium ke
 shadows baked once as a shadow-height map, so the sun is decided in 3D. Height-dependent haze with one tunable distance.
 The eagle built in code (flapping, folding to dive, banking), a glide/flap/dive flight model with a coordinated turn,
 bump-and-slow collision, a chase camera, thermals marked by circling birds, wind and wingbeat sound made live.
+
+---
+
+# Run 2: a varied world (16 Nov 2026)
+
+## Predictions (written before building)
+
+**Hypothesis.** Ari's 3/5 comes from sameness, not from the flying or the look. A world of clearly different places a
+minute or two apart (a narrow slot, a wide basin full of temples, a rapids gorge, a waterfall from a side canyon, a stone
+bridge to fly under, a pine forest on a higher rim), on a map four times larger (8 km, so a glide along one river meets
+the same place again only after about 8 minutes) will lift "keep flying" to 4 or more, without breaking the frame budget.
+
+Baseline for the new numbers, measured just before building: the page reaches the menu 0.7 s after load; the test
+Chrome's GPU process uses 346 MB (peak 488 MB).
+
+| # | Prediction | Measured | Result |
+|---|---|---|---|
+| R1 | Ari, after 5 minutes: "keep flying" 4/5 or more | | |
+| R2 | Full 1080p, Medium, haze 600 m, fly-through through the new places: ≥ 60 fps average, GPU ≤ 12 ms average, no frame over 25 ms | | |
+| R3 | `index.html` ≤ 300 KB (expected about 80 KB) | | |
+| R4 | The 8 km world costs at most 2.5 times the memory: test Chrome GPU process ≤ 850 MB, menu ≤ 5 s after load | | |
+| R5 | Visual critic, final round: nothing above minor | | |
