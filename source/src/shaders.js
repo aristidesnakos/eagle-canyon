@@ -12,7 +12,9 @@ fn vn(p: vec3f) -> f32 {
              mix(mix(h31(i + vec3f(0., 0., 1.)), h31(i + vec3f(1., 0., 1.)), u.x), mix(h31(i + vec3f(0., 1., 1.)), h31(i + vec3f(1., 1., 1.)), u.x), u.y), u.z);
 }
 // 2D value noise that repeats every P cells (P whole), so the world tiles
-fn ph(i: vec2f, P: f32) -> f32 { let w = i - P * floor(i / P); return h31(vec3f(w, P)); }
+// (the y offset breaks h31's near-symmetry in x and y, which mirrored every noise field about the line x = z and left a
+// crease along the world's diagonal)
+fn ph(i: vec2f, P: f32) -> f32 { let w = i - P * floor(i / P); return h31(vec3f(w.x, w.y + 113.5, P)); }
 fn pn(p: vec2f, P: f32) -> f32 {
   let i = floor(p); let f = fract(p); let u = f * f * (3. - 2. * f);
   return mix(mix(ph(i, P), ph(i + vec2f(1., 0.), P), u.x), mix(ph(i + vec2f(0., 1.), P), ph(i + vec2f(1., 1.), P), u.x), u.y);
@@ -111,30 +113,41 @@ fn terr(u: f32) -> f32 {
 @compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) gid: vec3u) {
   let id = vec2u(gid.x, gid.y + row0.x);
   let p = vec2f(id) * TX;
-  // distance to the nearer river's centre line: coarse search along z, then refine
-  var bd = 1e9; var bz = p.y; var r2 = false;
+  // distance to each river's centre line: coarse search along z, then refine
+  var dA = 1e9; var zA = p.y; var dB = 1e9; var zB = p.y;
   for (var k = -60; k <= 60; k++) {
     let z = p.y + f32(k) * 40.; let dz2 = (z - p.y) * (z - p.y);
     let a = wrapd(p.x - riverX(z)); let b = wrapd(p.x - riverX2(z));
-    if (a * a + dz2 < bd) { bd = a * a + dz2; bz = z; r2 = false; }
-    if (b * b + dz2 < bd) { bd = b * b + dz2; bz = z; r2 = true; }
+    if (a * a + dz2 < dA) { dA = a * a + dz2; zA = z; }
+    if (b * b + dz2 < dB) { dB = b * b + dz2; zB = z; }
   }
-  let z0 = bz;
+  let zA0 = zA; let zB0 = zB;
   for (var k = -20; k <= 20; k++) {
-    let z = z0 + f32(k) * 2.; let dx = select(wrapd(p.x - riverX(z)), wrapd(p.x - riverX2(z)), r2);
-    let d = dx * dx + (z - p.y) * (z - p.y); if (d < bd) { bd = d; bz = z; }
+    let za = zA0 + f32(k) * 2.; let a = wrapd(p.x - riverX(za)); let da = a * a + (za - p.y) * (za - p.y); if (da < dA) { dA = da; zA = za; }
+    let zb = zB0 + f32(k) * 2.; let b = wrapd(p.x - riverX2(zb)); let db = b * b + (zb - p.y) * (zb - p.y); if (db < dB) { dB = db; zB = zb; }
   }
+  let r2 = dB < dA; let bd = select(dA, dB, r2); let bz = select(zA, zB, r2);
   let rg = regAt(select(0, 1, r2), bz);
+  // the other river's main canyon, so where a wide canyon reaches past half way the two meet without a seam
+  let ro = regAt(select(1, 0, r2), select(zB, zA, r2));
+  let dO = max(sqrt(select(dB, dA, r2)) - ro.c.y, 0.); let bzO = select(zB, zA, r2);
   let d = max(sqrt(bd) - rg.c.y, 0.);
   let q = p / 4096.; let qo = q + select(vec2f(0.), vec2f(.37, .61), r2);
   let halfW = rg.a.x * (1. + .2 * sin(6.2831853 * bz / 4096. * 3. + 1.1 + select(0., 2.3, r2)) + .19 * (pf(q * 3., 3. * K, 2) - .5));
   // main canyon: spurs and amphitheatres from low-frequency noise along the walls
-  var t = d / halfW;
-  t *= 1. + rg.a.y * (.55 * (pf(q * 10., 10. * K, 3) - .5) + .30 * (pf(q * 26., 26. * K, 3) - .5));
-  t += .06 * rg.a.y * (pf(q * 90., 90. * K, 2) - .5);
+  // (the noise fades out right at the river, so its channel never breaks into separate pools)
+  let t0 = d / halfW; let wn = ss(.035, .12, t0 - max(-rg.c.y, 0.) / halfW);
+  var t = t0;
+  t *= 1. + wn * rg.a.y * (.55 * (pf(q * 10., 10. * K, 3) - .5) + .30 * (pf(q * 26., 26. * K, 3) - .5));
+  t += wn * .06 * rg.a.y * (pf(q * 90., 90. * K, 2) - .5);
   // buttresses and joints: metre-scale ins and outs along every wall, so cliffs are not smooth sheets
-  t += 9. * (1. - .7 * rg.c.z) / halfW * (pf(q * vec2f(520., 520.) + vec2f(pn(q * 60., 60. * K) * 2.), 520. * K, 2) - .5);
+  t += wn * 9. * (1. - .7 * rg.c.z) / halfW * (pf(q * vec2f(520., 520.) + vec2f(pn(q * 60., 60. * K) * 2.), 520. * K, 2) - .5);
   var e = sat(1. - t);
+  { let hwO = ro.a.x * (1. + .2 * sin(6.2831853 * bzO / 4096. * 3. + 1.1 + select(2.3, 0., r2)) + .19 * (pf(q * 3., 3. * K, 2) - .5));
+    var tO = dO / hwO;
+    tO *= 1. + ro.a.y * (.55 * (pf(q * 10., 10. * K, 3) - .5) + .30 * (pf(q * 26., 26. * K, 3) - .5));
+    tO += .06 * ro.a.y * (pf(q * 90., 90. * K, 2) - .5);
+    e = max(e, sat(1. - tO)); }
   // gullies: narrow side canyons every few hundred metres that bite into the walls
   let gq = q * 22. + vec2f(pf(q * 30., 30. * K, 2), pf(q * 30. + 3.3, 30. * K, 2)) * .6;
   let gn = pf(gq, 22. * K, 2);
@@ -171,7 +184,9 @@ fn terr(u: f32) -> f32 {
   var y = YR + h * (DP + R);
   if (h < 0.) {
     // the river and its banks: sandy beaches, then the bed
-    let tl = sat(u / LW[0]);
+    // (measured from where the centre line falls, so a river narrowed by a negative extra width keeps its deep bed)
+    var u0 = max(-rg.c.y, 0.) / halfW; if (u0 < uA / sq) { u0 *= sq; }
+    let tl = sat((u - u0) / (LW[0] - u0));
     y = YR + mix(-7., -.4, ss(.32, .5, tl)) + 4.4 * pow(ss(.5, 1., tl), 1.3);
     // boulders in the rapids: rounded rocks breaking the surface, more where the rapids are strong
     if (rg.c.x > .5) {
@@ -541,12 +556,18 @@ fn hv(k: i32, p: vec2f, mo: f32) -> f32 { return mix(hl(k, p), hl(k + 1, p), mo)
   let p = i.wp; let b = bake(p);
   let nt = textureSampleLevel(tN, sR, p.xz / WL, 0.).rg * 2. - 1.;
   let n = vec3f(nt.x, sqrt(max(1. - dot(nt, nt), 0.)), nt.y);
-  var c = shadeRock(p, n, b, 0.);
-  // Far away the mesh cells (8-32 m) are coarser than the river, so the water plane would show as steps: there the
-  // ground itself turns to water wherever the full-resolution height is under the surface.
-  if (i.lv > .5) {
+  // On the coarser levels the mesh height between vertices is a straight blend, which would cut the colour bands
+  // (and the sand along the river) into zigzags along the cell diagonals: colour and light from the true height.
+  var pc = p;
+  if (i.lv > .5) { pc.y = hl(0, p.xz); }
+  var c = shadeRock(pc, n, b, 0.);
+  // Past the finest mesh level the cells (4-32 m) are coarser than the river, and the water plane would cut stepped
+  // diamonds out of them: there the river plane stops (W_RIVER) and the ground itself turns to water wherever the
+  // full-resolution height is under the surface.
+  let far = ss(100., 130., max(abs(p.x - g.cam.x), abs(p.z - g.cam.z)));
+  if (far > .001) {
     let hb = hl(0, p.xz);
-    let wet = ss(YR + .4, YR - .4, hb) * ss(.5, 1.5, i.lv);
+    let wet = ss(YR + .4, YR - .4, hb) * far;
     if (wet > .001) {
       let V = normalize(g.cam.xyz - p); let R = reflect(-V, vec3f(0., 1., 0.));
       let fr = .02 + .98 * pow(1. - sat(V.y), 5.);
@@ -643,7 +664,9 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
   let w = g.cam.xz + c * g.fogp.y; o.wp = vec3f(w.x, YR, w.y); o.cp = g.vp * vec4f(o.wp, 1.); return o;
 }
 @fragment fn fs(i: VO) -> @location(0) vec4f {
-  let p = i.wp; let t = g.cam.w;
+  let p = i.wp; let t = g.cam.w; let fc = i.cp;
+  // beyond the finest terrain level the ground draws the water (see W_TERRAIN); a dithered hand-over, no seam
+  if (ss(100., 130., max(abs(p.x - g.cam.x), abs(p.z - g.cam.z))) > fract(52.9829189 * fract(dot(fc.xy, vec2f(.06711056, .00583715))))) { discard; }
   let hb = hl(0, p.xz);
   if (hb > YR + .05) { discard; } // where the coarse far mesh dips below the water, keep the true shoreline
   let depth = max(YR - hb, 0.);

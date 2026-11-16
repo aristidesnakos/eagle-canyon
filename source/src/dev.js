@@ -36,6 +36,15 @@
     full,
     view(i) { this.hideMenu(); mode = 2; viewAt(i); },
     nviews: () => VIEWS.length,
+    // river-A z values where the east rim edge has the most pines within 200 m inland (for choosing view 7)
+    pineSpot() { const res = []; for (let z = 0; z < L; z += 100) { const w = wallDist(z, YTOP + rimRise(riverX(z) + 600, z), 1), p = riverPt(z, w + 150, 0); let n = 0;
+      for (let i = 0; i < TP.n; i++) { let dx = TP.data[i * 8] - p[0], dz = TP.data[i * 8 + 2] - p[2]; dx -= L * round(dx / L); dz -= L * round(dz / L); if (dx * dx + dz * dz < 200 * 200) n++; } res.push([z, n, w]); }
+      return res.sort((a, b) => b[1] - a[1]).slice(0, 6); },
+    tex(i, j, w = 6) { const o = []; for (let y = j - w; y <= j + w; y++) { const r = []; for (let x = i - w; x <= i + w; x++) r.push(H[((x % NT) + NT) % NT + (((y % NT) + NT) % NT) * NT].toFixed(1)); o.push(y + ': ' + r.join(' ')); } return o.join('\n'); }, // H.slice
+
+    // how much of each river runs dry (bed above the water within 30 m of the centre line), sampled every 16 m
+    dry() { const out = []; for (const r of [0, 1]) { let dry = 0, n = 0; for (let z = 0; z < L; z += 16) { n++; let m = 1e9; const x0 = rX(r, z); for (let o = -30; o <= 30; o += 2) m = min(m, hAt(x0 + o, z)); if (m > YR - 0.5) dry++; } out.push(`river ${r}: ${dry} of ${n} dry`); } return out.join('; '); },
+    pose: (i) => viewPose(VIEWS[i]).map(round),
     // the benchmark time at which the path crosses z (the bridge: EC.tAt(BRIDGE_Z))
     tAt(z) { for (let t = 0; t < FLYT; t += 0.05) { flyRaw(flyS(t)); if (P3[2] >= z) return +t.toFixed(2); } return -1; },
     setView(i, v) { VIEWS[i] = v; this.view(i); },
@@ -61,6 +70,6 @@
       x2.fillStyle = '#f00'; x2.font = '16px sans-serif'; VIEWS.forEach((v, i) => { const p = viewPose(v); x2.fillRect(p[0] * s - 4, p[2] * s - 4, 8, 8); x2.fillText(i + 1, p[0] * s + 6, p[2] * s); x2.fillRect(p[3] * s - 2, p[5] * s - 2, 4, 4); });
       return c.toDataURL('image/png');
     },
-    stats() { return { W, H: Hh, DW, DH, gpu: F[GPU], trees: TR.n, fog: FOG, eagle: [F[EX], F[EY], F[EZ]] }; },
+    stats() { return { W, H: Hh, DW, DH, gpu: F[GPU], trees: TR.n, pines: TP.n, fog: FOG, eagle: [F[EX], F[EY], F[EZ]] }; },
   };
 }

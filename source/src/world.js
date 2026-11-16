@@ -25,7 +25,7 @@ const rimRise = (x, z) => RIM * sstep(0, 900, wrapd(x - riverX(z))) * sstep(0, 9
 const RTYPES = {
   classic: [430, 1.0, 1.0, 1.0, 0.62, 0.45, 0.97, 1.0, 0.25, 0, 0, 0], // the canyon of run 1: spurs, buttes, side canyons
   narrows: [62, 0.22, 0, 0.25, 1.5, 0, 0, 1.0, 0.3, 6, 1, 0],          // a slot of orange sandstone: walls 330 m high, 15 m of river
-  basin: [1250, 1.1, 0.8, 0.7, 0.30, 0.55, 0.99, 1.6, 0.15, -28, 0, 1],  // wide open, full of tiered temples, clearer air
+  basin: [1250, 1.1, 0.8, 0.7, 0.30, 0.55, 0.99, 1.6, 0.15, -15, 0, 1],  // wide open, full of tiered temples, clearer air
   gorge: [600, 0.8, 1.0, 1.0, 0.72, 0.45, 0.95, 2.6, 1.0, 0, 0, 0],    // a deep inner gorge of grey schist, rapids, boulders
 };
 const RNAMES = Object.keys(RTYPES);
@@ -274,13 +274,13 @@ function meshEagle() {
 // distance), look ahead m, look offset as a share of the wall distance (negative: the other side), look height, river].
 // Keys 1-8 jump to them; tools/views.sh renders them. (viewPose, the path: main.js, they need hAt)
 const VIEWS = [
-  [7600, -1, 160, 0.5, 300, -0.4, 120, 0],  // 1 the classic canyon: layered walls and buttes
+  [900, -1, 150, 0.45, 300, -0.5, 120, 0],  // 1 the classic canyon: layered walls and buttes
   [2050, 1, 60, 0.3, 200, -0.3, 70, 0],      // 2 the narrows: a slot 330 m deep
   [2300, 1, 95, 0.15, 150, 0, 130, 0],       // 3 the stone bridge where the narrows open
   [3600, -1, 280, 0.15, 520, -0.5, 180, 0], // 4 the basin and its temples
   [5550, 1, 16, 0.25, 220, -0.2, 14, 0],     // 5 the rapids in the inner gorge
   [7140, -1, 50, 0.45, 110, -0.85, 55, 0],   // 6 the waterfall from the side canyon
-  [1200, 1, 470, 1.1, 250, -0.8, 350, 0],    // 7 the high rim: ponderosa forest at the edge
+  [3700, 1, 470, 1.1, 300, -0.6, 350, 0],   // 7 the high rim: ponderosa forest at the edge
   [6800, 1, 200, 0.7, 80, -2.5, 250, 0],     // 8 across the canyon into the low sun
 ];
 // the benchmark path: from z = FLYZ0 along river A, one height above the river per 180 m: low through the narrows,
