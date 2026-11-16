@@ -50,7 +50,7 @@ const W_GEN = W_NOISE + W_CONST + /*wgsl*/`
 @group(0) @binding(0) var<storage, read_write> H: array<f32>;
 fn smax(a: f32, b: f32, k: f32) -> f32 { let h = sat(.5 + .5 * (a - b) / k); return mix(b, a, h) + k * h * (1. - h); }
 fn shape(k: f32, t: f32) -> f32 {
-  if (k < .5) { return mix(t, t * t * (3. - 2. * t), .9) * .96 + ss(.0, .5, t) * .04; }   // cliff
+  if (k < .5) { return ss(.12, .88, t) * .97 + t * .03; }   // cliff
   if (k < 1.5) { return pow(t, 1.8); }                                                   // talus slope
   if (k < 2.5) { let s = t * 3.; let i = floor(s); return (i + ss(.55, 1., s - i) * .8 + (s - i) * .2) / 3.; } // ledges
   return 0.;
@@ -114,7 +114,7 @@ fn terr(u: f32) -> f32 {
     let r = length(el);
     if (hh.z > .62 && r < bdist) { bdist = r; bh = (hh.z - .62) / .38; }
   } }
-  let bump = ss(.42, .2, bdist + .22 * (pf(q * 50., 50., 3) - .5)) * ss(.12, .4, e) * ss(.97, .8, e);
+  let bump = ss(.42, .34, bdist + .2 * (pf(q * 50., 50., 3) - .5)) * ss(.12, .4, e) * ss(.97, .8, e);
   e = mix(e, e * (1. - mix(.45, .97, bh)), bump);
   let u = 1. - e;
   var h = terr(u);
@@ -201,7 +201,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) uv: vec2f, @location(1) k
   let a = T[t * 2u]; let b = T[t * 2u + 1u];
   let hgt = 3.0 * a.w * b.y; let wid = 2.0 * a.w + 1.;
   let sd = -normalize(sun.xz); let rise = sun.y / length(sun.xz);
-  let len = hgt * .6 / rise; let ctr = a.xz + o + sd * (hgt * .62 / rise);
+  let len = hgt * .95 / rise; let ctr = a.xz + o + sd * (len * .5 - wid * .4);
   let c = vec2f(f32(vi & 1u), f32(vi >> 1u)) * 2. - 1.;
   let w = ctr + sd * c.y * len * .5 + vec2f(-sd.y, sd.x) * c.x * wid;
   var out: VO; out.cp = vec4f(w.x / WL * 2. - 1., 1. - w.y / WL * 2., 0., 1.); out.uv = c;
@@ -223,7 +223,7 @@ const S_B = W_NOISE + W_CONST + S_G + /*wgsl*/`
 @group(0) @binding(3) var tB: texture_2d<f32>;
 @group(0) @binding(4) var tT: texture_2d<f32>;
 const SUNC = vec3f(1., .66, .40) * 3.4;
-const KD = .5;
+const KD = .3;
 fn Fg(y: f32) -> f32 { if (y >= YT) { return 0.; } if (y >= YT - DP) { let q = YT - y; return -q * q / (2. * DP); } return y - (YT - DP) - DP * .5; }
 // optical depth from c to p: density a above the rim, rising linearly to a * (1 + KD) at the river
 fn odepth(c: vec3f, p: vec3f) -> f32 {
@@ -232,37 +232,35 @@ fn odepth(c: vec3f, p: vec3f) -> f32 {
   if (abs(dy) > .5) { avg = (Fg(p.y) - Fg(c.y)) / dy; }
   // a power of the distance rather than plain exponential fog: near air stays clear, the far air closes in
   let de = l * (1. + KD * avg) / g.fogp.x;
-  return 2.8 * pow(de, 2.2);
+  return 2.8 * pow(de, 2.6);
 }
 // colour of the desert air seen along v: dusty blue away from the sun, gold toward it, warmer and dustier low down
 fn haze(v: vec3f, low: f32) -> vec3f {
   let mu = dot(v, g.sun.xyz);
-  var c = mix(vec3f(.22, .30, .48), vec3f(.44, .36, .34), .12 + low * .5);
-  c += vec3f(1., .55, .26) * (pow(sat(mu), 8.) * .42 + pow(sat(mu), 64.) * 1.);
-  c *= .92 + .16 * v.y;
+  // pale warm grey-blue away from the sun, dusty peach toward it, warmer and dustier low in the canyon
+  var c = mix(vec3f(.36, .38, .44), vec3f(.50, .40, .32), .15 + low * .45);
+  c += vec3f(.75, .45, .22) * (pow(sat(mu * .5 + .5), 6.) * .35 + pow(sat(mu), 10.) * .4 + pow(sat(mu), 64.) * .9);
+  c *= .92 + .12 * v.y;
   return c;
 }
 fn atm(col: vec3f, p: vec3f) -> vec3f {
   let v = p - g.cam.xyz; let d = length(v); let vd = v / max(d, 1e-3);
   let tau = odepth(g.cam.xyz, p);
-  let T = exp(-tau * vec3f(.80, 1., 1.25));
+  let T = exp(-tau * vec3f(.9, 1., 1.12));
   let low = sat((YT - min(p.y, g.cam.y)) / DP);
   // air in the canyon's shadow scatters no sunlight: the haze there is dimmer and bluer
   let pm = mix(p, g.cam.xyz, .5);
   let shd = .5 * (sunVis(p, textureSampleLevel(tB, sR, p.xz / WL, 0.)) + sunVis(pm, textureSampleLevel(tB, sR, pm.xz / WL, 0.)));
-  let hz = haze(vd, low) * mix(vec3f(.42, .48, .62), vec3f(1.), shd);
+  let hz = haze(vd, low) * mix(vec3f(.55, .58, .68), vec3f(1.), shd);
   var c = col * T + hz * (1. - T);
-  return mix(c, haze(vd, 0.), ss(g.fogp.y * .8, g.fogp.y * .97, d));
+  return mix(c, mix(hz, haze(vd, 0.), .5), ss(g.fogp.y * .82, g.fogp.y * .98, d));
 }
 fn sky(v: vec3f) -> vec3f {
   let up = sat(v.y); let mu = dot(v, g.sun.xyz);
   var c = haze(v, 0.);
-  let zen = vec3f(.10, .20, .42) + vec3f(.9, .45, .2) * pow(sat(mu), 6.) * .35;
-  c = mix(c, zen, ss(.0, .5, up) * .85);
+  let zen = vec3f(.15, .25, .45) + vec3f(.9, .45, .2) * pow(sat(mu), 6.) * .3;
+  c = mix(c, zen, ss(.02, .65, up) * .8);
   // thin high cloud streaks, lit gold from below by the low sun
-  let cp = v.xz / max(v.y + .08, .02);
-  let cl = ss(.6, .9, vn(vec3f(cp.x * .5 + 3., 0., cp.y * 1.6 + cp.x * .3))) * ss(.15, .35, up) * ss(.95, .6, up);
-  c = mix(c, vec3f(1., .78, .6) * (.8 + .6 * pow(sat(mu), 3.)), cl * .18);
   c += vec3f(40., 26., 14.) * ss(.99985, .99993, mu);
   return c;
 }
@@ -280,9 +278,9 @@ fn eagleSh(p: vec3f) -> f32 {
 }
 fn bake(p: vec3f) -> vec4f { return textureSampleLevel(tB, sR, p.xz / WL, 0.); }
 // sunlight at a point from the shadow height under it: decided in 3D, so cliffs, the eagle and trees all agree
-fn sunVis(p: vec3f, b: vec4f) -> f32 { return ss(-1.2, 1.2, p.y - b.r + .6); }
+fn sunVis(p: vec3f, b: vec4f) -> f32 { return ss(-2.5, 2.5, p.y - b.r + 1.5); }
 fn lightAmb(n: vec3f, ao: f32) -> vec3f {
-  return (vec3f(.30, .40, .62) * .75 * (.55 + .45 * n.y) + vec3f(.62, .32, .17) * .40 * (.6 - .4 * n.y)) * (.3 + .7 * ao);
+  return (vec3f(.30, .38, .55) * .7 * (.55 + .45 * n.y) + vec3f(.70, .36, .18) * .6 * (.65 - .35 * n.y)) * (.5 + .5 * ao);
 }
 fn fin(c: vec3f) -> vec4f { return vec4f(c, 1.); }
 `;
@@ -327,13 +325,12 @@ fn rock(p: vec3f, n: vec3f, fw: f32) -> vec3f {
   if (i < NL - 1) { c = mix(c, LC[i + 1], ss(.86, 1., f) * .5); }
   if (i > 0) { c = mix(c, LC[i - 1], ss(.12, 0., f) * .4); }
   // thin beds within each layer
-  let bed = mix(vn(vec3f(p.x * .004, p.y * .55, p.z * .004)), .5, ss(.3, .8, fw * .55)) * .6 + mix(vn(vec3f(p.x * .01, p.y * 1.7, p.z * .01)), .5, ss(.2, .6, fw * 1.7)) * .4;
-  c *= .68 + .6 * bed;
+  let bed = vn(vec3f(p.x * .002, p.y * .11, p.z * .002)) * .65 + mix(vn(vec3f(p.x * .004, p.y * .3, p.z * .004)), .5, ss(.6, 1.6, fw * .3)) * .35;
+  c *= .72 + .5 * bed;
   // the schist: dark with pink granite veins
-  if (i == 1) { let vv = abs(vn(p * vec3f(.03, .06, .03) + vn(p * .1) * .6) - .5); c = mix(c, vec3f(.17, .085, .075), ss(.035, .01, vv) * (1. - ss(.2, .6, fw))); }
   // desert varnish streaks run down steep faces
   let steep = 1. - ss(.35, .8, n.y);
-  let st = vn(vec3f(p.x * .3, p.y * .015, p.z * .3));
+  let st = mix(vn(vec3f(p.x * .12, p.y * .012, p.z * .12)), .5, ss(.3, 1., fw * .12));
   c *= 1. - steep * .45 * ss(.5, .85, st);
   // red wash from the layers above stains the slopes below them
   c = mix(c, c * vec3f(1.08, .9, .82), steep * .3);
@@ -342,10 +339,10 @@ fn rock(p: vec3f, n: vec3f, fw: f32) -> vec3f {
   // (linear colours)
   var soil = mix(c * 1.05, vec3f(.11, .085, .05), .4);
   if (i == NL - 1) { soil = vec3f(.15, .105, .062); }
-  if (i == 3) { soil = vec3f(.10, .10, .058); }
+  if (i == 3) { soil = vec3f(.13, .105, .07); }
   if (i == 0) { soil = vec3f(.25, .19, .11); }
-  let scrub = ss(.62, .78, vn(p * vec3f(.35, .2, .35))) * select(.5, .8, i == 3 || i == NL - 1);
-  soil = mix(soil, vec3f(.018, .024, .010), scrub * .6);
+  let scrub = ss(.55, .8, mix(vn(p * vec3f(.07, .05, .07)), .3, ss(.4, 1.2, fw * .07))) * select(.3, .5, i == 3 || i == NL - 1);
+  soil = mix(soil, soil * vec3f(.6, .62, .5), scrub);
   return mix(c, soil, flat * .85);
 }
 @fragment fn fs(i: VO) -> @location(0) vec4f {
@@ -354,10 +351,10 @@ fn rock(p: vec3f, n: vec3f, fw: f32) -> vec3f {
   let dist = length(p - g.cam.xyz);
   // small-scale relief by bump mapping a noise height through screen derivatives
   // bedding planes (horizontal ledges every few metres), vertical runnels and grit
-  let bp = abs(fract(p.y / 2.6 + vn(p * vec3f(.02, .05, .02)) * .5) - .5) * 2.; // a continuous triangle wave
+  let bp = abs(fract(p.y / 7. + vn(p * vec3f(.01, .03, .01)) * .5) - .5) * 2.; // a continuous triangle wave: ledges every 7 m
   let fw = fwidth(p.y) + fwidth(p.x) * .3 + fwidth(p.z) * .3; // metres per pixel, to fade detail before it shimmers
   let hn = vn(p * vec3f(.45, 1.1, .45)) * (1. - ss(.3, .9, fw)) + vn(p * vec3f(1.6, 2.4, 1.6)) * .4 * (1. - ss(.1, .3, fw))
-         + ss(.3, .7, bp) * .9 * (1. - ss(.75, .95, n.y)) * (1. - ss(.35, .8, fw / 2.6))
+         + ss(.3, .7, bp) * 1.4 * (1. - ss(.75, .95, n.y)) * (1. - ss(.25, .55, fw / 7.))
          + vn(vec3f(p.x * .35, p.y * .04, p.z * .35)) * .7;
   let dpx = dpdx(p); let dpy = dpdy(p); let dhx = dpdx(hn); let dhy = dpdy(hn);
   let r1 = cross(dpy, n); let r2 = cross(n, dpx); let det = dot(dpx, r1);
@@ -396,12 +393,12 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
   let V = normalize(g.cam.xyz - p); let R = reflect(-V, n);
   let fr = .02 + .98 * pow(1. - sat(dot(n, V)), 5.);
   let b = bake(p); let sh = sunVis(p, b) * eagleSh(p);
-  var refl = sky(vec3f(R.x, abs(R.y), R.z)) * mix(.55, 1., b.g);
+  var refl = sky(vec3f(R.x, abs(R.y), R.z)) * mix(.55, 1., b.g) * vec3f(.75, .9, .8);
   refl += SUNC * 6. * pow(sat(dot(R, g.sun.xyz)), 300.) * sh;
-  let body = vec3f(.025, .11, .085) * (SUNC * .25 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.2);
+  let body = vec3f(.03, .10, .06) * (SUNC * .25 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.2);
   let sand = vec3f(.30, .24, .16) * (SUNC * .4 * sh + lightAmb(vec3f(0., 1., 0.), b.g));
   var c = mix(sand, body, ss(.0, 1.8, depth));
-  c = mix(c, refl, fr);
+  c = mix(c, refl, fr * .7);
   // rapids and the foam line at the banks
   let rap = ss(.68, .8, vn(vec3f(q * vec2f(.06, .03), t * .05))) * ss(1.2, 3.5, depth);
   let foam = max(ss(.6, .1, depth) * .6, rap * ss(.5, .75, vn(vec3f(q * 1.3, t * 1.5))));
@@ -425,8 +422,8 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
   o.wp = w; o.base = base;
   o.n = vec3f(cy * i.n.x - sy * i.n.z, i.n.y, sy * i.n.x + cy * i.n.z);
   let k = i.b.w; let tn = i.b.z;
-  var leaf = vec3f(.030, .055, .022);
-  if (k > .5) { leaf = vec3f(.050, .068, .040); }
+  var leaf = vec3f(.022, .036, .016);
+  if (k > .5) { leaf = vec3f(.030, .042, .034); }
   if (k > 1.5) { leaf = vec3f(.085, .080, .055); }
   if (k > 2.5) { leaf = vec3f(.050, .11, .025); }
   leaf *= .8 + .4 * tn;
@@ -452,11 +449,12 @@ struct VI { @location(0) p: vec3f, @location(1) n: vec4f, @location(2) col: vec4
 struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n: vec3f, @location(2) col: vec4f, @location(3) lp: vec3f };
 fn rotz(v: vec3f, a: f32, piv: vec3f) -> vec3f { let c = cos(a); let s = sin(a); let q = v - piv; return piv + vec3f(c * q.x - s * q.y, s * q.x + c * q.y, q.z); }
 fn rotzn(v: vec3f, a: f32) -> vec3f { let c = cos(a); let s = sin(a); return vec3f(c * v.x - s * v.y, s * v.x + c * v.y, v.z); }
-@vertex fn vs(i: VI) -> VO {
+struct Pose { pos: vec3f, r: vec3f, u: vec3f, f: vec3f, ph: f32, amp: f32, fold: f32, dih: f32, sc: f32 };
+fn wings(i: VI, e: Pose) -> VO {
   var o: VO;
   let sp = i.n.w; let side = sign(sp); let a = abs(sp);
   var p = i.p; var n = i.n.xyz;
-  let ph = g.ep.w; let amp = g.er.w; let fold = g.eu.w; let dih = g.ef.w;
+  let ph = e.ph; let amp = e.amp; let fold = e.fold; let dih = e.dih;
   if (a > .001) {
     // fold for a dive: wings pulled in and swept back
     p.x *= 1. - .42 * fold * ss(.1, .9, a);
@@ -470,11 +468,26 @@ fn rotzn(v: vec3f, a: f32) -> vec3f { let c = cos(a); let s = sin(a); return vec
   }
   // tail fans out a little when slow
   if (a < .001 && p.z < -.27) { p.x *= 1. + .35 * g.mis.z; }
-  let w = g.ep.xyz + g.er.xyz * p.x * 1.4 + g.eu.xyz * p.y * 1.4 + g.ef.xyz * p.z * 1.4;
+  let w = e.pos + (e.r * p.x + e.u * p.y + e.f * p.z) * e.sc;
   o.wp = w; o.lp = p;
-  o.n = g.er.xyz * n.x + g.eu.xyz * n.y + g.ef.xyz * n.z;
+  o.n = e.r * n.x + e.u * n.y + e.f * n.z;
   o.col = i.col;
   o.cp = g.vp * vec4f(w, 1.);
+  return o;
+}
+@vertex fn vs(i: VI) -> VO { return wings(i, Pose(g.ep.xyz, g.er.xyz, g.eu.xyz, g.ef.xyz, g.ep.w, g.er.w, g.eu.w, g.ef.w, 1.6)); }
+// the birds circling in thermals: instance a = thermal centre + radius, b = lift, top, phase, bird index
+struct VIB { @location(0) p: vec3f, @location(1) n: vec4f, @location(2) col: vec4f, @location(3) a: vec4f, @location(4) b: vec4f };
+@vertex fn vsB(i: VIB) -> VO {
+  let k = f32(i.b.w); let t = g.cam.w * (.32 + .05 * k) + i.b.z + k * 2.1;
+  var c = i.a.xyz; var rel = c.xz - g.cam.xz; rel -= WL * round(rel / WL); c = vec3f(g.cam.x + rel.x, c.y, g.cam.z + rel.y);
+  let r = i.a.w * (.55 + .2 * k);
+  let pos = c + vec3f(cos(t) * r, 25. + k * 38. + 4. * sin(t * .7), sin(t) * r);
+  let f = normalize(vec3f(-sin(t), .02, cos(t)));
+  let r0 = normalize(cross(f, vec3f(0., 1., 0.))); let u0 = cross(r0, f); let bk = .38;
+  let rr = r0 * cos(bk) - u0 * sin(bk); let uu = u0 * cos(bk) + r0 * sin(bk);
+  var o = wings(VI(i.p, i.n, i.col), Pose(pos, rr, uu, f, t * 3., .03, 0., .16, 1.15));
+  o.col = vec4f(i.col.rgb * vec3f(.35, .3, .3), i.col.a);
   return o;
 }
 @fragment fn fs(i: VO, @builtin(front_facing) ff: bool) -> @location(0) vec4f {

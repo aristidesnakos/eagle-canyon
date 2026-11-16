@@ -39,6 +39,7 @@
     bench(m) { this.hideMenu(); FOG = m; return new Promise((r) => { done = r; startBench(); }); },
     // one clip frame at time t (30 fps steps); resolves after it is on screen
     clip(t) { this.hideMenu(); if (mode !== 3) { mode = 3; F[FLT] = t - 1; for (let k = 0; k < 60; k++) { flyAt(F[FLT] += 1 / 60); chase(1 / 60); } } F[FLT] = t; F[TIME] = t; return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); },
+    toThermal(i) { this.hideMenu(); started = true; mode = 0; placeEagle(THERM[i * 8] - 30, THERM[i * 8 + 1] + 30, THERM[i * 8 + 2], PI / 2, 15); return NTH; },
     hud(on) { hud = on; info.textContent = ''; },
     // shaded relief of the heightmap (S x S), river centre line in blue, viewpoints in red, the benchmark path in yellow
     map(S = 768) {

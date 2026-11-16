@@ -17,16 +17,16 @@ const riverDX = (z) => { let d = 0; for (const [a, f, p] of RIV) d += a * TAU / 
 const LAYERS = [
   // name            w      t     k  colour
   ['river banks',   0.04,  0.01, 3, [0.74, 0.64, 0.50]],
-  ['Vishnu schist', 0.07,  0.22, 0, [0.30, 0.26, 0.26]],
+  ['Vishnu schist', 0.07,  0.22, 0, [0.38, 0.31, 0.29]],
   ['Tapeats',       0.02,  0.05, 0, [0.52, 0.38, 0.27]],
   ['Bright Angel',  0.17,  0.10, 1, [0.60, 0.58, 0.45]],
   ['Muav',          0.03,  0.05, 0, [0.62, 0.56, 0.48]],
   ['Redwall',       0.05,  0.12, 0, [0.74, 0.38, 0.25]],
   ['Supai',         0.24,  0.17, 2, [0.80, 0.43, 0.26]],
   ['Hermit',        0.16,  0.10, 1, [0.66, 0.30, 0.19]],
-  ['Coconino',      0.04,  0.07, 0, [0.93, 0.86, 0.72]],
-  ['Toroweap',      0.12,  0.05, 2, [0.83, 0.69, 0.53]],
-  ['Kaibab',        0.06,  0.06, 0, [0.85, 0.80, 0.69]],
+  ['Coconino',      0.04,  0.07, 0, [0.86, 0.73, 0.55]],
+  ['Toroweap',      0.12,  0.05, 2, [0.80, 0.62, 0.46]],
+  ['Kaibab',        0.06,  0.06, 0, [0.80, 0.69, 0.54]],
 ];
 const NL = LAYERS.length;
 const wgslArr = (f) => `array<f32, ${NL}>(${LAYERS.map((l) => f(l).toFixed(4)).join(', ')})`;
@@ -53,7 +53,7 @@ function plantTrees(H) {
     const sl = hypot(hAt(x + 4, z) - hAt(x - 4, z), hAt(x, z + 4) - hAt(x, z - 4)) / 8;
     const cl = vnoise(x / 90, 3.1, z / 90), cl2 = vnoise(x / 23, 7.7, z / 23);
     let p = 0, kind = 0, s = 1, hf = 1;
-    if (h > YTOP - 14 && sl < 0.4) { p = 0.3 * sstep(0.25, 0.7, cl) + 0.06 * cl2; s = rr(0.7, 1.5); hf = rr(0.8, 1.3); kind = rnd() < 0.5 ? 0 : 1; }
+    if (h > YTOP - 14 && sl < 0.4) { p = 0.2 * sstep(0.35, 0.75, cl) + 0.02 * cl2; s = rr(0.45, 1.6); hf = rr(0.8, 1.3); kind = rnd() < 0.5 ? 0 : 1; }
     else if (abs(h - espl) < 10 && sl < 0.35) { p = 0.07 * sstep(0.35, 0.7, cl); s = rr(0.5, 1.1); kind = 1; }
     else if (abs(h - tonto) < 14 && sl < 0.35) { p = 0.07 * sstep(0.25, 0.7, cl2); s = rr(0.3, 0.55); hf = rr(0.5, 0.8); kind = 2; }
     else if (h > YR + 0.6 && h < YR + 4.5 && sl < 0.5) { p = 0.30; s = rr(0.45, 0.85); hf = rr(0.7, 1.1); kind = 3; }
@@ -67,6 +67,19 @@ function plantTrees(H) {
   const start = count.slice(), fill = count.slice(0, -1), data = new Float32Array(n * 8);
   for (let i = 0; i < n; i++) { const d = fill[cellOf[i]]++; for (let k = 0; k < 8; k++) data[d * 8 + k] = out[i * 8 + k]; }
   return { data, start, n };
+}
+
+// ---------------------------------------------------------------- thermals
+// Columns of rising air inside the canyons, each marked by three dark birds circling in it (as vultures mark thermals).
+// thermal: x, y (floor of the circling), z, radius | lift m/s, top height, phase, 0
+function makeThermals(hAt) {
+  rseed(11); const out = [];
+  for (let k = 0; out.length < 34 * 8 && k < 4000; k++) {
+    const x = rr(0, L), z = rr(0, L), h = hAt(x, z);
+    if (h > YTOP - 60 || h < YR + 30) continue;
+    out.push(x, h + 40, z, rr(30, 50), rr(2.8, 4.2), YTOP + rr(120, 220), rr(0, TAU), 0);
+  }
+  return new Float32Array(out);
 }
 
 // ---------------------------------------------------------------- meshes built in code
@@ -86,7 +99,7 @@ function meshTree(lo) {
 // aux = signed span (0 at the body, +-1 at the wing tips) drives flapping and folding in the vertex shader.
 function meshEagle() {
   const m = new Mesh();
-  const BROWN = [0.12, 0.075, 0.045, 1], DARK = [0.07, 0.05, 0.035, 1], WHITE = [0.88, 0.87, 0.82, 1], YEL = [0.95, 0.66, 0.12, 2];
+  const BROWN = [0.24, 0.15, 0.09, 1], DARK = [0.12, 0.085, 0.06, 1], WHITE = [0.80, 0.78, 0.72, 1], YEL = [0.95, 0.66, 0.12, 2];
   m.c = BROWN; m.lathe([[-0.32, 0.03], [-0.22, 0.085], [-0.05, 0.12], [0.1, 0.115], [0.22, 0.085], [0.27, 0.07]], 10, 0.85);
   m.c = WHITE; m.lathe([[0.25, 0.072], [0.33, 0.078], [0.41, 0.066], [0.46, 0.045], [0.48, 0.02]], 10, 0.95, 0, 0.03, 0);
   m.c = YEL; m.lathe([[0.455, 0.032], [0.51, 0.022], [0.55, 0.008]], 6, 1, 0, 0.015, 0);
@@ -102,7 +115,7 @@ function meshEagle() {
     m.c = BROWN;
     const span = [0.07, 0.2, 0.36, 0.5, 0.62];
     const rows = [0, 1, 2, 3].map((r) => span.map((x) => {
-      const t = (x - 0.07) / 0.55, chord = 0.40 + 0.06 * sin(t * PI) - 0.1 * t, lead = 0.12 - 0.05 * t;
+      const t = (x - 0.07) / 0.55, chord = 0.50 + 0.05 * sin(t * PI) - 0.06 * t, lead = 0.14 - 0.04 * t;
       const z = lead - chord * r / 3, y = 0.03 * sin(r / 3 * PI) * (1 - t * 0.5);
       return [sx * x, y, z];
     }));
@@ -110,7 +123,7 @@ function meshEagle() {
     m.c = DARK;
     for (let f = 0; f < 6; f++) {
       const a = 0.25 - f * 0.13, root = [0.6, 0.0, 0.06 - f * 0.055], len = 0.36 + 0.1 * sin(f / 5 * PI) - f * 0.02;
-      const tip = [root[0] + cos(a) * len, 0.0, root[2] + sin(a) * len * 0.6 - 0.03], wid = 0.05;
+      const tip = [root[0] + cos(a) * len, 0.0, root[2] + sin(a) * len * 0.6 - 0.03], wid = 0.085;
       const P = [0, 1].map((r) => [0, 1, 2].map((c) => { const t = c / 2, x = mix(root[0], tip[0], t), z = mix(root[2], tip[2], t) + (r - 0.5) * wid * (1 - 0.5 * t); return [sx * x, 0.012 * f * t, z]; }));
       m.panel(P, (r, c) => sx * (mix(root[0], tip[0], c / 2) - 0.07) / 0.98, 0.008);
     }
@@ -126,7 +139,7 @@ function meshEagle() {
 const VIEWS = [
   [600, 1, 45, 0.15, 260, -0.1, 35],     // low over the river, down the inner gorge
   [1500, 1, 175, 0.6, 260, -0.2, 150],   // along a wall at mid height
-  [2300, -1, 375, 0.95, 160, -0.5, 150], // just above the rim, looking down across the canyon
+  [2300, -1, 352, 0.9, 320, -0.15, 230], // skimming the rim edge, looking along the canyon
   [3050, 1, 105, 0.55, 230, 0.7, 140],   // down at the Tonto platform, the red walls rising ahead
   [3450, -1, 352, 1.35, 230, 1.1, 340],  // on the rim plateau among pinyon and juniper
   [1050, 1, 150, 0.7, 300, -0.6, 170],   // up the canyon with the low sun ahead: the west wall in silhouette

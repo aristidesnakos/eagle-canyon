@@ -83,13 +83,15 @@ const hAt = (x, z) => {
 };
 
 await say('Planting pinyon and juniper…', 0.6, 900);
-const TR = plantTrees(H);
+const TR = plantTrees(H), THERM = makeThermals(hAt), NTH = THERM.length / 8;
+// three birds per thermal: the instance buffer repeats each thermal with the bird index in the last slot
+const thermBirds = new Float32Array(NTH * 24); for (let i = 0; i < NTH * 3; i++) { thermBirds.set(THERM.subarray((i / 3 | 0) * 8, (i / 3 | 0) * 8 + 8), i * 8); thermBirds[i * 8 + 7] = i % 3; }
 const meshes = [meshEagle(), meshTree(false), meshTree(true)];
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 20), allI = new Uint32Array(nI);
 for (const m of meshes) { allV.set(new Uint8Array(m.vb), m.v0 * 20); allI.set(m.ib, m.i0); }
-const vbMesh = buf(allV, BU.VERTEX), ibMesh = buf(allI, BU.INDEX), ibTree = buf(TR.data, BU.VERTEX | BU.STORAGE);
+const vbMesh = buf(allV, BU.VERTEX), ibMesh = buf(allI, BU.INDEX), ibTree = buf(TR.data, BU.VERTEX | BU.STORAGE), ibBirds = buf(thermBirds, BU.VERTEX);
 const [EAGLE, TREE, TREELO] = meshes;
 { // tree shadows baked into tT
   const m = mod(W_TSH);
@@ -115,7 +117,7 @@ const A = (shaderLocation, offset, format) => ({ shaderLocation, offset, format 
 const vbM = { arrayStride: 20, attributes: [A(0, 0, 'float32x3'), A(1, 12, 'snorm8x4'), A(2, 16, 'unorm8x4')] };
 const ibT = { arrayStride: 32, stepMode: 'instance', attributes: [A(3, 0, 'float32x4'), A(4, 16, 'float32x4')] };
 const scenePipe = (m, buffers, o = {}) => device.createRenderPipeline({ layout: pl0,
-  vertex: { module: m, entryPoint: 'vs', buffers, constants: o.constants },
+  vertex: { module: m, entryPoint: o.vs || 'vs', buffers, constants: o.constants },
   fragment: { module: m, entryPoint: 'fs', targets: [{ format: HDR }] },
   primitive: { topology: o.strip ? 'triangle-strip' : 'triangle-list', cullMode: o.cull || 'none' },
   depthStencil: { format: ZFMT, depthWriteEnabled: !o.sky, depthCompare: o.sky ? 'equal' : 'greater' }, multisample: { count: AA } });
@@ -123,7 +125,7 @@ const TN = 160; // cells per side of each terrain level
 const pTerrain = scenePipe(mod(W_TERRAIN), [], { constants: { N: TN } });
 const pRiver = scenePipe(mod(W_RIVER), [], { strip: true });
 const pTree = scenePipe(mod(W_TREE), [vbM, ibT]);
-const pEagle = scenePipe(mod(W_EAGLE), [vbM]);
+const mEagle = mod(W_EAGLE), pEagle = scenePipe(mEagle, [vbM]), pBirds = scenePipe(mEagle, [vbM, ibT], { vs: 'vsB' });
 const pSky = scenePipe(mod(W_SKY), [], { sky: true });
 const bglBlit = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: SS.FRAGMENT, texture: {} }, { binding: 1, visibility: SS.FRAGMENT, sampler: {} }] });
 const plBlit = device.createPipelineLayout({ bindGroupLayouts: [bglBlit] });
@@ -261,6 +263,7 @@ function render() {
   let r = e.beginRenderPass(passScene);
   r.setBindGroup(0, bg0);
   if (eagleOn) { r.setPipeline(pEagle); r.setVertexBuffer(0, vbMesh); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(EAGLE.ib.length, 1, EAGLE.i0, EAGLE.v0, 0); }
+  r.setPipeline(pBirds); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibBirds); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(EAGLE.ib.length, NTH * 3, EAGLE.i0, EAGLE.v0, 0);
   r.setPipeline(pTerrain);
   for (let k = 0; k < nLv; k++) r.draw(TN * TN * 6, 1, 0, k);
   r.setPipeline(pTree); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibTree); r.setIndexBuffer(ibMesh, 'uint32'); drawTrees(r);
@@ -319,6 +322,12 @@ function fly(dt) {
   const c = cos(F[GAM]), sp = F[SPD];
   let vx = sin(F[YAW]) * c * sp, vy = sin(F[GAM]) * sp, vz = cos(F[YAW]) * c * sp;
   F[EX] += vx * dt; F[EY] += vy * dt; F[EZ] += vz * dt;
+  // thermals lift you without costing speed: circle inside one to climb
+  for (let i = 0; i < NTH; i++) {
+    const o = i * 8; let dx = F[EX] - THERM[o], dz = F[EZ] - THERM[o + 2]; dx -= L * round(dx / L); dz -= L * round(dz / L);
+    const q = (dx * dx + dz * dz) / (THERM[o + 3] * THERM[o + 3]);
+    if (q < 1) F[EY] += THERM[o + 4] * (1 - q) * sstep(THERM[o + 5], THERM[o + 5] - 80, F[EY]) * dt;
+  }
   // rock: push out along the ground normal, lose the speed into it, bump the camera
   let hit = 0;
   for (let it = 0; it < 3; it++) {
@@ -343,7 +352,7 @@ function fly(dt) {
 // chase camera: behind and a little above, smoothed; pulled in front of any rock between it and the eagle
 function chase(dt) {
   eagleBasis(EB);
-  const sp = F[SPD], dist = 7.5 + sp * 0.05, y = F[YAW], g = F[GAM] * 0.6;
+  const sp = F[SPD], dist = 6.5 + sp * 0.045, y = F[YAW], g = F[GAM] * 0.6;
   const bx = sin(y) * cos(g), by = sin(g), bz = cos(y) * cos(g);
   let ex = F[EX] - bx * dist, ey = F[EY] - by * dist + 1.9, ez = F[EZ] - bz * dist;
   if (snapCam) { F[LX] = ex; F[LY] = ey; F[LZ] = ez; snapCam = false; }
@@ -367,7 +376,7 @@ function eagleUniforms() {
   m[44] = F[EX]; m[45] = F[EY]; m[46] = F[EZ]; m[47] = F[PH];
   m[48] = EB[0]; m[49] = EB[1]; m[50] = EB[2]; m[51] = F[AMP];
   m[52] = EB[3]; m[53] = EB[4]; m[54] = EB[5]; m[55] = F[FOLD];
-  m[56] = EB[6]; m[57] = EB[7]; m[58] = EB[8]; m[59] = 0.1 * (1 - F[FOLD]) + kflare * 0.15;
+  m[56] = EB[6]; m[57] = EB[7]; m[58] = EB[8]; m[59] = 0.05 * (1 - F[FOLD]) + kflare * 0.15;
 }
 
 // ---------------------------------------------------------------- scripted flight (menu backdrop, benchmark)
