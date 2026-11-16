@@ -232,14 +232,15 @@ fn odepth(c: vec3f, p: vec3f) -> f32 {
   if (abs(dy) > .5) { avg = (Fg(p.y) - Fg(c.y)) / dy; }
   // a power of the distance rather than plain exponential fog: near air stays clear, the far air closes in
   let de = l * (1. + KD * avg) / g.fogp.x;
-  return 2.8 * pow(de, 2.6);
+  // clear for the first third of the distance, then closing in: 2.8 (6% left) at FOG
+  return 2.8 * pow(max(de - .3, 0.) / .7, 1.7);
 }
 // colour of the desert air seen along v: dusty blue away from the sun, gold toward it, warmer and dustier low down
 fn haze(v: vec3f, low: f32) -> vec3f {
   let mu = dot(v, g.sun.xyz);
   // pale warm grey-blue away from the sun, dusty peach toward it, warmer and dustier low in the canyon
-  var c = mix(vec3f(.36, .38, .44), vec3f(.50, .40, .32), .15 + low * .45);
-  c += vec3f(.75, .45, .22) * (pow(sat(mu * .5 + .5), 6.) * .35 + pow(sat(mu), 10.) * .4 + pow(sat(mu), 64.) * .9);
+  var c = mix(vec3f(.36, .39, .50), vec3f(.55, .42, .32), .2 + low * .5);
+  c += vec3f(.80, .48, .22) * (pow(sat(mu * .5 + .5), 4.) * .45 + pow(sat(mu), 10.) * .35 + pow(sat(mu), 64.) * .8);
   c *= .92 + .12 * v.y;
   return c;
 }
