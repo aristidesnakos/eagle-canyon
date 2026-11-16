@@ -32,14 +32,33 @@ const colorAtt = (view, clear) => ({ view, loadOp: clear ? 'clear' : 'load', sto
 const NMIP = 5;
 
 // ---------------------------------------------------------------- world textures
-// heights (full resolution, mips), the bake (sun, sky, rim, travertine: half resolution), ground normals, tree shadows
+// heights (full resolution, mips), the sun's shadow (full resolution), the info map (sky, rim, travertine, regions:
+// half resolution), ground normals, tree shadows, and the rock detail tiles
 const tH = tex(NT, NT, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING | TU.COPY_DST, { mips: NMIP });
-const tB = tex(NT / 2, NT / 2, 'rgba16float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING);
+const tB = tex(NT / 2, NT / 2, 'rgba8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT);
+const tS = tex(NT, NT, 'r16float', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT); // the sun's shadow heights, full resolution
 const tM = tex(NT / 2, NT / 2, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING, { mips: NMIP - 1 }); // max chain from mip 1, load time only
 const tN = tex(NT, NT, 'rg8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT, { mips: NMIP });
 const tT = tex(NT, NT, 'r8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT);
 const sRep = device.createSampler({ addressModeU: 'repeat', addressModeV: 'repeat', magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
 const sClamp = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+const sDet = device.createSampler({ addressModeU: 'repeat', addressModeV: 'repeat', magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', maxAnisotropy: LV > 1 ? 2 : 8 });
+// rock detail tiles: three layers, each drawn once and reduced to mips
+const DMIP = Math.log2(DN) + 1, tD = device.createTexture({ size: [DN, DN, 3], format: 'rgba8unorm', usage: TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT, mipLevelCount: DMIP });
+{
+  const m = mod(W_DET), tg = { targets: [{ format: 'rgba8unorm' }] }, vx = { module: m, entryPoint: 'vs' };
+  const p = device.createRenderPipeline({ layout: 'auto', vertex: vx, fragment: { module: m, entryPoint: 'fs', ...tg } });
+  const pm = device.createRenderPipeline({ layout: 'auto', vertex: vx, fragment: { module: m, entryPoint: 'fsMip', ...tg } });
+  const e = device.createCommandEncoder();
+  for (let l = 0; l < 3; l++) for (let k = 0; k < DMIP; k++) {
+    const v = (j) => tD.createView({ dimension: '2d', baseArrayLayer: l, arrayLayerCount: 1, baseMipLevel: j, mipLevelCount: 1 });
+    const r = e.beginRenderPass({ colorAttachments: [colorAtt(v(k), true)] });
+    r.setPipeline(k ? pm : p);
+    r.setBindGroup(0, device.createBindGroup({ layout: (k ? pm : p).getBindGroupLayout(0), entries: k ? [{ binding: 1, resource: v(k - 1) }, { binding: 2, resource: sClamp }] : [{ binding: 0, resource: { buffer: buf(new Float32Array([l, 0, 0, 0]), BU.UNIFORM) } }] }));
+    r.draw(3); r.end();
+  }
+  Q.submit([e.finish()]);
+}
 const UB = new Float32Array(88), ubo = device.createBuffer({ size: UB.byteLength, usage: BU.UNIFORM | BU.COPY_DST });
 const sunU = buf(new Float32Array([...SUN, 0]), BU.UNIFORM);
 
@@ -80,18 +99,24 @@ let H;
   for (let m = 1; m < NMIP; m++) mip(0, lv(tH, m - 1), lv(tH, m), NT >> m);
   for (let m = 1; m < NMIP; m++) mip(1, m === 1 ? lv(tH, 0) : lv(tM, m - 2), lv(tM, m - 1), NT >> m);
   Q.submit([e.finish()]);
-  // then the bake (sun, sky) and the normals from them
+  // then the normals, the info map, and the sun's shadow in strips (one submit each, so no single GPU job runs long)
   const e2 = device.createCommandEncoder();
-  const pb = device.createComputePipeline({ layout: 'auto', compute: { module: mod(W_BAKE), entryPoint: 'main' } });
-  const cb = e2.beginComputePass(); cb.setPipeline(pb);
-  cb.setBindGroup(0, device.createBindGroup({ layout: pb.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView() }, { binding: 1, resource: tB.createView() }, { binding: 2, resource: { buffer: sunU } }, { binding: 3, resource: tM.createView() }] }));
-  cb.dispatchWorkgroups(NT / 16, NT / 16); cb.end();
-  const mn = mod(W_NORM), pn = device.createRenderPipeline({ layout: 'auto', vertex: { module: mn, entryPoint: 'vs' }, fragment: { module: mn, entryPoint: 'fs', targets: [{ format: 'rg8unorm' }] } });
+  const fsPipe = (code, format) => { const m = mod(code); return device.createRenderPipeline({ layout: 'auto', vertex: { module: m, entryPoint: 'vs' }, fragment: { module: m, entryPoint: 'fs', targets: [{ format }] } }); };
+  const pn = fsPipe(W_NORM, 'rg8unorm');
   for (let m = 0; m < NMIP; m++) {
     const rn = e2.beginRenderPass({ colorAttachments: [{ view: lv(tN, m), loadOp: 'clear', storeOp: 'store', clearValue: [0.5, 0.5, 0, 0] }] });
     rn.setPipeline(pn); rn.setBindGroup(0, device.createBindGroup({ layout: pn.getBindGroupLayout(0), entries: [{ binding: 0, resource: lv(tH, m) }] })); rn.draw(3); rn.end();
   }
+  { const pb = fsPipe(W_BAKE, 'rgba8unorm'), rb = e2.beginRenderPass({ colorAttachments: [colorAtt(tB.createView(), true)] });
+    rb.setPipeline(pb); rb.setBindGroup(0, device.createBindGroup({ layout: pb.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView() }] })); rb.draw(3); rb.end(); }
   Q.submit([e2.finish()]);
+  { const ps = fsPipe(W_SHADOW, 'r16float'), bs = device.createBindGroup({ layout: ps.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView() }, { binding: 1, resource: { buffer: sunU } }, { binding: 2, resource: tM.createView() }] });
+    const vs = tS.createView(), SN = 8;
+    for (let k = 0; k < SN; k++) {
+      const e3 = device.createCommandEncoder(), rs = e3.beginRenderPass({ colorAttachments: [{ view: vs, loadOp: k ? 'load' : 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }] });
+      rs.setPipeline(ps); rs.setBindGroup(0, bs); rs.setScissorRect(0, k * NT / SN, NT, NT / SN); rs.draw(3); rs.end();
+      Q.submit([e3.finish()]); await Q.onSubmittedWorkDone();
+    } }
   await br.mapAsync(GPUMapMode.READ);
   H = new Float32Array(br.getMappedRange().slice(0));
   br.unmap(); br.destroy(); bd.destroy();
@@ -135,9 +160,11 @@ const VF = SS.VERTEX | SS.FRAGMENT;
 const bgl0 = device.createBindGroupLayout({ entries: [
   { binding: 0, visibility: VF, buffer: {} }, { binding: 1, visibility: VF, sampler: {} },
   { binding: 2, visibility: VF, texture: { sampleType: 'unfilterable-float' } },
-  { binding: 3, visibility: VF, texture: {} }, { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VF, texture: {} }] });
+  { binding: 3, visibility: VF, texture: {} }, { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VF, texture: {} },
+  { binding: 6, visibility: SS.FRAGMENT, texture: { viewDimension: '2d-array' } }, { binding: 7, visibility: SS.FRAGMENT, sampler: {} }, { binding: 8, visibility: SS.FRAGMENT, texture: {} }] });
 const bg0 = device.createBindGroup({ layout: bgl0, entries: [{ binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: sRep },
-  { binding: 2, resource: tH.createView() }, { binding: 3, resource: tB.createView() }, { binding: 4, resource: tT.createView() }, { binding: 5, resource: tN.createView() }] });
+  { binding: 2, resource: tH.createView() }, { binding: 3, resource: tB.createView() }, { binding: 4, resource: tT.createView() }, { binding: 5, resource: tN.createView() },
+  { binding: 6, resource: tD.createView() }, { binding: 7, resource: sDet }, { binding: 8, resource: tS.createView() }] });
 const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] });
 const A = (shaderLocation, offset, format) => ({ shaderLocation, offset, format });
 const vbM = { arrayStride: 20, attributes: [A(0, 0, 'float32x3'), A(1, 12, 'snorm8x4'), A(2, 16, 'unorm8x4')] };

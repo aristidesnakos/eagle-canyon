@@ -77,6 +77,7 @@
     settle(w, h, secs = 60) { this.hideMenu(); FW = w; FH = h; dynHold = false; pix = PIXMAX; dynT = -300; resize(); mode = 1; F[FLT] = 0; const t0 = performance.now(), sm = []; let nf = 0, late = 0, lt = 0;
       return new Promise((r) => { const f = () => { const t = (performance.now() - t0) / 1000; if (t > secs / 2) { sm.push(W * Hh / (DW * DH)); nf++; if (F[LAST] - lt > 25) late++; } lt = F[LAST]; if (t > secs) { sm.sort((a, b) => a - b); let s = 0; for (const v of sm) s += v; r({ screen: `${DW}x${DH}`, share: +(s / sm.length).toFixed(3), min: +sm[0].toFixed(3), last: `${W}x${Hh}`, gpu: +F[GPU].toFixed(2), fps: +(nf / (secs / 2)).toFixed(1), late }); FW = FH = 0; dynHold = true; pix = 1e9; resize(); } else requestAnimationFrame(f); }; f(); }); },
     force(w, h) { FW = w; FH = h; dynHold = true; pix = 1e9; resize(); return `${W}x${Hh}`; },
+    look(v) { this.hideMenu(); mode = 2; const o = VIEWS[0]; VIEWS[0] = v; viewAt(0); VIEWS[0] = o; },
     draws(o) { Object.assign(SKIP, o); },
     stats() { return { W, H: Hh, DW, DH, gpu: F[GPU], trees: TR.n, pines: TP.n, fog: FOG, eagle: [F[EX], F[EY], F[EZ]] }; },
   };
