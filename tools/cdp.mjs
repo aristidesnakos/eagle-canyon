@@ -17,11 +17,12 @@ const [cmd, ...args] = process.argv.slice(2);
 
 async function page() {
   const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-  const p = list.find((t) => t.type === 'page');
+  let p = list.find((t) => t.type === 'page');
+  if (!p) p = await (await fetch(`http://127.0.0.1:${PORT}/json/new?about:blank`, { method: 'PUT' })).json();
   const ws = new WebSocket(p.webSocketDebuggerUrl);
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
   let id = 0; const wait = new Map();
-  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && wait.has(d.id)) { wait.get(d.id)(d); wait.delete(d.id); } };
+  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && wait.has(d.id)) { wait.get(d.id)(d); wait.delete(d.id); } else if (d.method && globalThis.__onmsg) globalThis.__onmsg(d); };
   const send = (method, params = {}) => new Promise((r, j) => { const i = ++id; wait.set(i, (d) => d.error ? j(new Error(d.error.message)) : r(d.result)); ws.send(JSON.stringify({ id: i, method, params })); });
   return { send, close: () => ws.close() };
 }
@@ -72,6 +73,14 @@ try {
       const left = +every - (Date.now() - t); if (left > 0) await new Promise((r) => setTimeout(r, left));
     }
     console.log('saved', n, 'frames to', dir);
+  } else if (cmd === 'reload-log') {
+    // reload the page and print console messages and exceptions for N ms
+    const msgs = []; const ws2 = null;
+    await send('Runtime.enable'); await send('Log.enable');
+    globalThis.__onmsg = (d) => { if (d.method === 'Runtime.consoleAPICalled') msgs.push(d.params.type + ': ' + d.params.args.map((a) => a.value ?? a.description).join(' ')); if (d.method === 'Runtime.exceptionThrown') msgs.push('EXC: ' + JSON.stringify(d.params.exceptionDetails).slice(0, 600)); if (d.method === 'Log.entryAdded') msgs.push('LOG: ' + d.params.entry.text); };
+    await send('Page.reload', {});
+    await new Promise((r) => setTimeout(r, +(args[0] || 8000)));
+    console.log(msgs.join('\n') || '(no console output)');
   } else if (cmd === 'quit') {
     await send('Browser.close').catch(() => 0);
   }
