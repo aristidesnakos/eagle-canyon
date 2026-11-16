@@ -174,7 +174,7 @@ fn terr(u: f32) -> f32 {
     let tl = sat(u / LW[0]);
     y = YR + mix(-7., -.4, ss(.32, .5, tl)) + 4.4 * pow(ss(.5, 1., tl), 1.3);
     // boulders in the rapids: rounded rocks breaking the surface, more where the rapids are strong
-    if (rg.c.x > .3) {
+    if (rg.c.x > .5) {
       // (big, low domes: anything narrower than a few texels would come out as a spike on the 2 m mesh)
       let bc = p / 16.; let bi = floor(bc); var bt = -9.;
       for (var j = -1; j <= 1; j++) { for (var i = -1; i <= 1; i++) {
@@ -213,6 +213,23 @@ fn terr(u: f32) -> f32 {
     y = mix(y, yn, fade);
   }
   H[id.x + id.y * u32(NT)] = y;
+}
+`;
+// isolated pinnacles: a point more than 20 m above everything 24-40 m around it is cut down (noise alone makes thin
+// cones that read as broken geometry; buttes, fins and walls are wider than the ring, so they keep their height)
+const W_DESPIKE = W_NOISE + W_CONST + /*wgsl*/`
+@group(0) @binding(0) var<storage, read> Hi: array<f32>;
+@group(0) @binding(1) var<storage, read_write> Ho: array<f32>;
+fn at(x: i32, y: i32) -> f32 { let n = NT; return Hi[u32((x % n + n) % n) + u32((y % n + n) % n) * u32(n)]; }
+@compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) id: vec3u) {
+  let x = i32(id.x); let y = i32(id.y); let h = at(x, y);
+  var m = -1e9;
+  for (var k = 0; k < 12; k++) {
+    let a = f32(k) * .5236; let c = vec2f(cos(a), sin(a));
+    m = max(m, at(x + i32(round(c.x * 12.)), y + i32(round(c.y * 12.))));
+    m = max(m, at(x + i32(round(c.x * 20.)), y + i32(round(c.y * 20.))));
+  }
+  Ho[id.x + id.y * u32(NT)] = min(h, m + 20.);
 }
 `;
 // height mips: a 3x3 tent around texel 2i, so mip texel i sits exactly over base texel i * 2^k
@@ -277,14 +294,15 @@ fn hl(m: i32, p: vec2f) -> f32 { // bilinear height at world xz from mip m
   textureStore(dst, vec2i(id.xy), vec4f(hs, sky, rimRise(p) / RIM, trav));
 }
 `;
-// ground normals at full resolution (a render pass into rg8unorm: x, z of the normal * 0.5 + 0.5)
+// ground normals, one render pass per mip level (rg8unorm: x, z of the normal * 0.5 + 0.5), each level from the
+// same level of the heights, so far and steep ground can read a smoother normal with one filtered sample
 const W_NORM = W_NOISE + W_CONST + W_FS + /*wgsl*/`
 @group(0) @binding(0) var tH: texture_2d<f32>;
 @fragment fn fs(@builtin(position) fc: vec4f) -> @location(0) vec4f {
-  let i = vec2i(fc.xy); let n = NT;
+  let i = vec2i(fc.xy); let n = i32(textureDimensions(tH).x); let sp = TX * f32(NT / n);
   let hx = textureLoad(tH, vec2i((i.x + 1) % n, i.y), 0).r - textureLoad(tH, vec2i((i.x - 1 + n) % n, i.y), 0).r;
   let hz = textureLoad(tH, vec2i(i.x, (i.y + 1) % n), 0).r - textureLoad(tH, vec2i(i.x, (i.y - 1 + n) % n), 0).r;
-  let nr = normalize(vec3f(-hx, 2. * TX, -hz));
+  let nr = normalize(vec3f(-hx, 2. * sp, -hz));
   return vec4f(nr.x * .5 + .5, nr.z * .5 + .5, 0., 1.);
 }
 `;
@@ -354,6 +372,9 @@ fn atm(col: vec3f, p: vec3f) -> vec3f {
   let shd = .5 * (sunVis(p, textureSampleLevel(tB, sR, p.xz / WL, 0.)) + sunVis(pm, textureSampleLevel(tB, sR, pm.xz / WL, 0.)));
   let hz = haze(vd, low) * mix(vec3f(.62, .55, .50), vec3f(1.), shd);
   var c = col * T + hz * (1. - T);
+  // far sunlit tops would come out lighter than the air around them and read as snow: past half way into the haze,
+  // nothing is brighter than the haze itself
+  c = mix(c, min(c, hz * 1.02), sat((1. - T.g) * 1.6));
   return mix(c, mix(hz, haze(vd, 0.), .5), ss(g.fogp.y * .82, g.fogp.y * .98, d));
 }
 fn sky(v: vec3f) -> vec3f {
@@ -396,8 +417,8 @@ fn fin(c: vec3f) -> vec4f { return vec4f(c, 1.); }
 const S_ROCK = /*wgsl*/`
 // rock colour from height through the layer table (stretched where the high rim has risen), with sub-beds, desert
 // varnish, soil on the flats and travertine around the waterfall's pools
-fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
-  let rgn = regAt(select(0, 1, nearB(p.xz)), p.z); let sand = rgn.c.z; let gorge = ss(.5, .95, rgn.c.x);
+fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f, rgc: vec4f) -> vec3f {
+  let sand = rgc.z; let gorge = ss(.5, .95, rgc.x);
   let yy = (p.y - YR) / (DP + b.b * RIM) + (vn(vec3f(p.x * .003, 1.3, p.z * .003)) - .5) * .008;
   var acc = 0.; var i = 0; var f = 0.;
   for (; i < NL - 1; i++) { if (yy < acc + LT[i]) { break; } acc += LT[i]; }
@@ -417,13 +438,13 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
   // the gorge: grey-violet schist with dipping foliation all the way up to the Redwall
   if (gorge > .01) {
     let fol = (p.x * .55 + p.z * .83) * .045 + p.y * .02 + vn(p * vec3f(.015, .01, .015)) * 1.4;
-    let sc = vec3f(.15, .15, .165) * (.65 + .6 * vn(vec3f(fol * 3., p.y * .004, 1.)));
+    let sc = vec3f(.15, .16, .19) * (.6 + .6 * vn(vec3f(fol * 3., p.y * .004, 1.))) + vec3f(.10, .10, .10) * ss(.9, .97, vn(vec3f(fol * 9., p.y * .01, 4.))) * (1. - ss(.5, 1.5, fw));
     c = mix(c, sc, gorge * ss(.47, .40, yy));
   }
   // the narrows: smooth orange sandstone with long, gently curving cross-beds instead of the layer table
   if (sand > .01) {
     let xb = p.y * .09 + vn(p * vec3f(.012, .02, .012)) * 3. + vn(p * .05) * .4;
-    let ss1 = vec3f(.62, .25, .10) * (.82 + .3 * vn(vec3f(xb, 1., 2.)) + .1 * sin(xb * 6.2831853));
+    let ss1 = vec3f(.62, .25, .10) * (.84 + .26 * vn(vec3f(xb, 1., 2.)) + .1 * sin(xb * 6.2831853));
     c = mix(c, ss1, sand * (1. - b.a));
   }
   // a little desert varnish down steep faces
@@ -446,7 +467,7 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
 }
 // lit rock at p with smooth normal n: relief by bump-mapping a noise height through screen derivatives
 // (bedding ledges every 7 m, lumps and grit, faded with distance before they shimmer)
-fn shadeRock(p: vec3f, n0: vec3f, b: vec4f) -> vec3f {
+fn shadeRock(p: vec3f, n0: vec3f, b: vec4f, forceSand: f32) -> vec3f {
   // On steep faces the 2 m normal map varies only across the face, which paints vertical streaks down tall cliffs:
   // there, lean on a normal from 8 m height differences instead.
   // Far away (several metres per pixel) the same smoother normal stands in for the unfiltered 2 m map, which would alias.
@@ -454,22 +475,23 @@ fn shadeRock(p: vec3f, n0: vec3f, b: vec4f) -> vec3f {
   let fw = fwidth(p.y) + fwidth(p.x) * .3 + fwidth(p.z) * .3; // metres per pixel, to fade detail before it shimmers
   let stp = max((1. - ss(.45, .75, n0.y)) * .7, ss(.6, 2.5, fw));
   if (stp > .01) {
-    let e = 8.; let hx = hl(2, p.xz + vec2f(e, 0.)) - hl(2, p.xz - vec2f(e, 0.)); let hz = hl(2, p.xz + vec2f(0., e)) - hl(2, p.xz - vec2f(0., e));
-    n = normalize(mix(n0, normalize(vec3f(-hx, 2. * e, -hz)), stp));
+    let t2 = textureSampleLevel(tN, sR, p.xz / WL, max(2., log2(fw / TX) + 1.)).rg * 2. - 1.;
+    n = normalize(mix(n0, vec3f(t2.x, sqrt(max(1. - dot(t2, t2), 0.)), t2.y), stp));
   }
   let ns = n;
   let dist = length(p - g.cam.xyz);
-  let sandL = regAt(select(0, 1, nearB(p.xz)), p.z).c.z;
+  var rgc = regAt(select(0, 1, nearB(p.xz)), p.z).c; rgc.z = max(rgc.z, forceSand); let sandL = rgc.z;
   let bp = abs(fract(p.y / 7. + vn(p * vec3f(.01, .03, .01)) * .5) - .5) * 2.; // a continuous triangle wave: ledges every 7 m
-  let hn = vn(p * vec3f(.45, .9, .45)) * (1. - ss(.25, .7, fw)) + vn(p * vec3f(1.6, 2.4, 1.6)) * .3 * (1. - ss(.06, .18, fw))
+  let hn = vn(p * vec3f(.45, .9, .45)) * (1. - ss(.25, .7, fw)) * (1. - .6 * sandL) + vn(p * vec3f(1.6, 2.4, 1.6)) * .3 * (1. - ss(.06, .18, fw))
          + ss(.3, .7, bp) * 1.4 * (1. - ss(.75, .95, n.y)) * (1. - ss(.25, .55, fw / 7.)) * (1. - .8 * sandL)
          + vn(p * vec3f(.18, .1, .18)) * .8;
   let dpx = dpdx(p); let dpy = dpdy(p); let dhx = dpdx(hn); let dhy = dpdy(hn);
   let r1 = cross(dpy, n); let r2 = cross(n, dpx); let det = dot(dpx, r1);
   let gr = sign(det) * (dhx * r1 + dhy * r2);
-  n = normalize(abs(det) * n - gr * .5 * ss(260., 60., dist));
-  let alb = rock(p, ns, fw, b); // colour from the smooth normal: soil and rock do not flicker with the bumps
-  let sh = sunVis(p, b) * textureSampleLevel(tT, sR, p.xz / WL, 0.).r * eagleSh(p);
+  n = normalize(abs(det) * n - gr * .5 * ss(260., 60., dist) * (1. - .7 * sandL));
+  let alb = rock(p, ns, fw, b, rgc); // colour from the smooth normal: soil and rock do not flicker with the bumps
+  // (tree shadows are baked flat onto the ground: keep them off steep faces, where they would smear)
+  let sh = sunVis(p, b) * mix(1., textureSampleLevel(tT, sR, p.xz / WL, 0.).r, ss(.55, .8, n0.y)) * eagleSh(p);
   let ndl = sat(dot(n, g.sun.xyz));
   var c = alb * (SUNC * ndl * sh + lightAmb(n, b.g));
   // cavities under ledges and between lumps hold less light
@@ -519,8 +541,20 @@ fn hv(k: i32, p: vec2f, mo: f32) -> f32 { return mix(hl(k, p), hl(k + 1, p), mo)
   let p = i.wp; let b = bake(p);
   let nt = textureSampleLevel(tN, sR, p.xz / WL, 0.).rg * 2. - 1.;
   let n = vec3f(nt.x, sqrt(max(1. - dot(nt, nt), 0.)), nt.y);
-  let c = shadeRock(p, n, b);
-  if (g.fogp.w > 2.5) { return vec4f(rock(p, n, 1., b) * 2., 1.); }
+  var c = shadeRock(p, n, b, 0.);
+  // Far away the mesh cells (8-32 m) are coarser than the river, so the water plane would show as steps: there the
+  // ground itself turns to water wherever the full-resolution height is under the surface.
+  if (i.lv > .5) {
+    let hb = hl(0, p.xz);
+    let wet = ss(YR + .4, YR - .4, hb) * ss(.5, 1.5, i.lv);
+    if (wet > .001) {
+      let V = normalize(g.cam.xyz - p); let R = reflect(-V, vec3f(0., 1., 0.));
+      let fr = .02 + .98 * pow(1. - sat(V.y), 5.);
+      let body = vec3f(.06, .10, .055) * (SUNC * .25 * sunVis(p, b) + lightAmb(vec3f(0., 1., 0.), b.g) * 1.2);
+      c = mix(c, mix(body, sky(vec3f(R.x, abs(R.y), R.z)) * mix(.55, 1., b.g) * vec3f(.75, .9, .8), fr * .7), wet);
+    }
+  }
+  if (g.fogp.w > 2.5) { return vec4f(rock(p, n, 1., b, vec4f(0.)) * 2., 1.); }
   if (g.fogp.w > 1.5) { return vec4f(vec3f(sunVis(p, b), sat(dot(n, g.sun.xyz)), b.g), 1.); }
   if (g.fogp.w > .5) { return vec4f(vec3f(f32(i.lv == 0.), f32(i.lv == 1.), f32(i.lv == 2.)) * (.3 + .7 * sat(dot(n, g.sun.xyz))) + f32(i.lv == 3.) * .5, 1.); }
   return fin(atm(c, p));
@@ -537,8 +571,15 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
 }
 @fragment fn fs(i: VO, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   var n = normalize(i.n); if (!ff) { n = -n; }
-  var b = bake(i.wp); b.g = .15 + .85 * sat(n.y * .5 + .5); b.a = 0.;
-  return fin(atm(shadeRock(i.wp, n, b), i.wp));
+  // shadow height averaged over 12 m (the 4 m samples would cut a jagged edge across the arch), and the underside,
+  // which the arch shades itself, kept out of the sun
+  var b = bake(i.wp);
+  let o = 6. / WL; let uv = i.wp.xz / WL;
+  b.r = (b.r + textureSampleLevel(tB, sR, uv + vec2f(o, 0.), 0.).r + textureSampleLevel(tB, sR, uv - vec2f(o, 0.), 0.).r
+       + textureSampleLevel(tB, sR, uv + vec2f(0., o), 0.).r + textureSampleLevel(tB, sR, uv - vec2f(0., o), 0.).r) * .2;
+  b.r = select(b.r, 1e4, n.y < -.35);
+  b.g = .15 + .85 * sat(n.y * .5 + .5); b.a = 0.;
+  return fin(atm(shadeRock(i.wp, n, b, 1.), i.wp));
 }
 `;
 
@@ -558,7 +599,8 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
     // spray rising where the fall hits the river: a broken veil, densest low down
     let h = i.col.a;
     let m1 = vn(vec3f(p.x * .35, p.y * .25 - t * 1.6, p.z * .35)) * .65 + vn(vec3f(p.x * 1.1, p.y * .8 - t * 2.4, p.z * 1.1)) * .35;
-    a = ss(.45, .75, m1 + .35 - h * .6) * ss(1., .7, h) * .85;
+    let face = abs(dot(normalize(i.n), normalize(g.cam.xyz - p)));
+    a = ss(.5, .8, m1 + .3 - h * .5) * ss(1., .3, h) * face * face * .8;
     c = vec3f(.78, .80, .80) * (SUNC * .45 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.5);
     return vec4f(atm(c, p), a);
   }
@@ -602,7 +644,9 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
 }
 @fragment fn fs(i: VO) -> @location(0) vec4f {
   let p = i.wp; let t = g.cam.w;
-  let depth = max(YR - hl(0, p.xz), 0.);
+  let hb = hl(0, p.xz);
+  if (hb > YR + .05) { discard; } // where the coarse far mesh dips below the water, keep the true shoreline
+  let depth = max(YR - hb, 0.);
   let rb = nearB(p.xz);
   let rp = regAt(select(0, 1, rb), p.z).c.x; // how wild the river is here
   let fl = normalize(vec2f(select(riverDX(p.z), riverDX2(p.z), rb), 1.));
@@ -629,7 +673,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
                 ss(.75, .55, depth / 3.) * ss(.45, .7, streak) * rp) * ss(.3, 1.5, depth);
   let fd = length(wrap2(p.xz - FALL_BASE));
   let plunge = ss(26., 4., fd) * (.55 + .45 * vn(vec3f(q * .7, t * 2.)));
-  let foam = max(max(ss(.6, .1, depth) * .6, rap * ss(.5, .75, vn(vec3f(q * 1.3, t * 1.5)))), plunge);
+  let foam = max(max(ss(.6, .1, depth) * .6 * ss(450., 120., length(p - g.cam.xyz)), rap * ss(.5, .75, vn(vec3f(q * 1.3, t * 1.5)))), plunge);
   c = mix(c, vec3f(.85, .85, .8) * (SUNC * .35 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.3), foam * .75);
   return fin(atm(c, p));
 }
@@ -653,7 +697,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
   var leaf = vec3f(.022, .036, .016);
   if (k > .5) { leaf = vec3f(.030, .042, .034); }
   if (k > 1.5) { leaf = vec3f(.085, .080, .055); }
-  if (k > 2.5) { leaf = vec3f(.050, .11, .025); }
+  if (k > 2.5) { leaf = vec3f(.045, .075, .028); }
   if (pine) { leaf = vec3f(.034, .056, .018); }
   leaf *= .8 + .4 * tn;
   o.col = select(pow(i.col.rgb, vec3f(2.2)), leaf, i.col.g > i.col.r);

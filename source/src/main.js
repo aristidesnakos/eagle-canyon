@@ -36,9 +36,9 @@ const NMIP = 5;
 const tH = tex(NT, NT, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING | TU.COPY_DST, { mips: NMIP });
 const tB = tex(NT / 2, NT / 2, 'rgba16float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING);
 const tM = tex(NT / 2, NT / 2, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING, { mips: NMIP - 1 }); // max chain from mip 1, load time only
-const tN = tex(NT, NT, 'rg8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT);
+const tN = tex(NT, NT, 'rg8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT, { mips: NMIP });
 const tT = tex(NT, NT, 'r8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT);
-const sRep = device.createSampler({ addressModeU: 'repeat', addressModeV: 'repeat', magFilter: 'linear', minFilter: 'linear' });
+const sRep = device.createSampler({ addressModeU: 'repeat', addressModeV: 'repeat', magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
 const sClamp = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
 const UB = new Float32Array(88), ubo = device.createBuffer({ size: UB.byteLength, usage: BU.UNIFORM | BU.COPY_DST });
 const sunU = buf(new Float32Array([...SUN, 0]), BU.UNIFORM);
@@ -59,9 +59,15 @@ let H;
     c.dispatchWorkgroups(NT / 8, NT / 8 / CH); c.end(); Q.submit([e.finish()]);
     await Q.onSubmittedWorkDone(); ro.destroy();
   }
+  // pinnacles cut down, into a second buffer that becomes the heights
+  const bd = device.createBuffer({ size, usage: BU.STORAGE | BU.COPY_SRC });
+  { const pd = device.createComputePipeline({ layout: 'auto', compute: { module: mod(W_DESPIKE), entryPoint: 'main' } });
+    const ed = device.createCommandEncoder(), cd = ed.beginComputePass(); cd.setPipeline(pd);
+    cd.setBindGroup(0, device.createBindGroup({ layout: pd.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: bh } }, { binding: 1, resource: { buffer: bd } }] }));
+    cd.dispatchWorkgroups(NT / 8, NT / 8); cd.end(); Q.submit([ed.finish()]); await Q.onSubmittedWorkDone(); bh.destroy(); }
   const e = device.createCommandEncoder();
-  e.copyBufferToBuffer(bh, 0, br, 0, size);
-  e.copyBufferToTexture({ buffer: bh, bytesPerRow: NT * 4 }, { texture: tH }, [NT, NT]);
+  e.copyBufferToBuffer(bd, 0, br, 0, size);
+  e.copyBufferToTexture({ buffer: bd, bytesPerRow: NT * 4 }, { texture: tH }, [NT, NT]);
   // height mips; the max chain (for the shadow march) starts at mip 1, read straight from the heights
   const mm = mod(W_MIP);
   const mip = (mx, src, dst, n) => {
@@ -81,12 +87,14 @@ let H;
   cb.setBindGroup(0, device.createBindGroup({ layout: pb.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView() }, { binding: 1, resource: tB.createView() }, { binding: 2, resource: { buffer: sunU } }, { binding: 3, resource: tM.createView() }] }));
   cb.dispatchWorkgroups(NT / 16, NT / 16); cb.end();
   const mn = mod(W_NORM), pn = device.createRenderPipeline({ layout: 'auto', vertex: { module: mn, entryPoint: 'vs' }, fragment: { module: mn, entryPoint: 'fs', targets: [{ format: 'rg8unorm' }] } });
-  const rn = e2.beginRenderPass({ colorAttachments: [{ view: tN.createView(), loadOp: 'clear', storeOp: 'store', clearValue: [0.5, 0.5, 0, 0] }] });
-  rn.setPipeline(pn); rn.setBindGroup(0, device.createBindGroup({ layout: pn.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView({ baseMipLevel: 0, mipLevelCount: 1 }) }] })); rn.draw(3); rn.end();
+  for (let m = 0; m < NMIP; m++) {
+    const rn = e2.beginRenderPass({ colorAttachments: [{ view: lv(tN, m), loadOp: 'clear', storeOp: 'store', clearValue: [0.5, 0.5, 0, 0] }] });
+    rn.setPipeline(pn); rn.setBindGroup(0, device.createBindGroup({ layout: pn.getBindGroupLayout(0), entries: [{ binding: 0, resource: lv(tH, m) }] })); rn.draw(3); rn.end();
+  }
   Q.submit([e2.finish()]);
   await br.mapAsync(GPUMapMode.READ);
   H = new Float32Array(br.getMappedRange().slice(0));
-  br.unmap(); br.destroy(); bh.destroy();
+  br.unmap(); br.destroy(); bd.destroy();
   await Q.onSubmittedWorkDone(); tM.destroy();
 }
 // height at any x, z (bilinear, wraps), and the ground normal

@@ -69,9 +69,9 @@ const LAYERS = [
   ['Redwall',       0.05,  0.12, 0, [0.74, 0.38, 0.25]],
   ['Supai',         0.24,  0.17, 2, [0.80, 0.43, 0.26]],
   ['Hermit',        0.16,  0.10, 1, [0.66, 0.30, 0.19]],
-  ['Coconino',      0.04,  0.07, 0, [0.80, 0.64, 0.46]],
-  ['Toroweap',      0.12,  0.05, 2, [0.74, 0.55, 0.40]],
-  ['Kaibab',        0.06,  0.06, 0, [0.72, 0.59, 0.45]],
+  ['Coconino',      0.04,  0.07, 0, [0.74, 0.57, 0.40]],
+  ['Toroweap',      0.12,  0.05, 2, [0.70, 0.50, 0.35]],
+  ['Kaibab',        0.06,  0.06, 0, [0.66, 0.52, 0.39]],
 ];
 const NL = LAYERS.length;
 const wgslArr = (f) => `array<f32, ${NL}>(${LAYERS.map((l) => f(l).toFixed(4)).join(', ')})`;
@@ -274,14 +274,14 @@ function meshEagle() {
 // distance), look ahead m, look offset as a share of the wall distance (negative: the other side), look height, river].
 // Keys 1-8 jump to them; tools/views.sh renders them. (viewPose, the path: main.js, they need hAt)
 const VIEWS = [
-  [560, 1, 160, 0.5, -380, -0.5, 110, 0],   // 1 the classic canyon: layered walls, looking down-river away from the sun
+  [7600, -1, 160, 0.5, 300, -0.4, 120, 0],  // 1 the classic canyon: layered walls and buttes
   [2050, 1, 60, 0.3, 200, -0.3, 70, 0],      // 2 the narrows: a slot 330 m deep
   [2300, 1, 95, 0.15, 150, 0, 130, 0],       // 3 the stone bridge where the narrows open
-  [3500, -1, 260, 0.2, 500, -0.5, 180, 0],   // 4 the basin and its temples
+  [3600, -1, 280, 0.15, 520, -0.5, 180, 0], // 4 the basin and its temples
   [5550, 1, 16, 0.25, 220, -0.2, 14, 0],     // 5 the rapids in the inner gorge
   [7140, -1, 50, 0.45, 110, -0.85, 55, 0],   // 6 the waterfall from the side canyon
   [1200, 1, 470, 1.1, 250, -0.8, 350, 0],    // 7 the high rim: ponderosa forest at the edge
-  [1050, 1, 170, 0.8, 60, -2.2, 260, 0],     // 8 up the canyon with the low sun ahead: the west wall in silhouette
+  [6800, 1, 200, 0.7, 80, -2.5, 250, 0],     // 8 across the canyon into the low sun
 ];
 // the benchmark path: from z = FLYZ0 along river A, one height above the river per 180 m: low through the narrows,
 // under the bridge, then up into the basin among the temples
