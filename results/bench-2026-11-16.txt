@@ -1,0 +1,8 @@
+date: 2026-11-16 14:25  load: 3.25 4.02 4.66  unity: none
+P0 settled: 60 fps  ·  worst frame 17.5 ms  ·  late frames 0 (total 0)  ·  GPU 13.01 ms  ·  942x530 (49%)
+P0 bench: Fly-through 942x530, 3600 frames | frame  avg 16.67  p99 17.60  max 17.80 ms | GPU    avg 12.91  p99 15.39  max 22.07 ms
+EC 1080p fog 400: {"res":"1920x1080","fog":400,"frame":{"n":3597,"avg":16.67,"p99":17.7,"max":18.3,"over25":0},"gpu":{"n":3597,"avg":7.02,"p99":12.88,"max":14.7,"over25":0},"fps":59.9}
+EC 1080p fog 250: {"res":"1920x1080","fog":250,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":17.8,"over25":0},"gpu":{"n":3598,"avg":6.94,"p99":13.04,"max":13.88,"over25":0},"fps":59.9}
+EC 1080p fog 600: {"res":"1920x1080","fog":600,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":17.8,"over25":0},"gpu":{"n":3598,"avg":8.26,"p99":13.44,"max":15.12,"over25":0},"fps":60}
+EC 720p fog 250: {"res":"1280x720","fog":250,"frame":{"n":3598,"avg":16.67,"p99":17.7,"max":17.8,"over25":0},"gpu":{"n":3598,"avg":4.23,"p99":7.08,"max":9.1,"over25":0},"fps":60}
+done 14:31
