@@ -40,7 +40,14 @@ the code. Three rounds.
   smooth slabs, vertical smears on steep faces, spiky silhouettes, blocky plateau ground, sun shape changing with
   haze). Its verdict on distance: **600 m reads most like weather**; 250 m reads as being inside a cloud.
   Fixed after it: haze clear for the first third of the distance, warmer toward the sun.
-- **Round 3:** CRITIC3
+- **Round 3** (final): highest severity still **critical**. The haze tint near the horizon is still cool lavender-grey,
+  so fogged cliff tops go whitish and view 3 reads as snowy peaks; it wants a warm dusty peach/ochre haze. Majors:
+  at 250 and 400 m the rim view empties out (the haze needs to be thinner at rim height than in the gorge) and the
+  fade jumps from clear to white with no middle depth plane; sawtooth teeth on steep ridgelines (the mesh is too coarse
+  for vertical cliffs); strata barely read on shaded walls. Moderates: stretched slope texture on the platform,
+  blocky plateau ground, bright round trees, the sun sitting high in view 6, the eagle not darkening in shade.
+  Its verdict again: **600 m reads most like weather**; 250 m reads as a fog bank; the colour fix matters more
+  than the distance.
 
 **Not met:** the gate was "iterate until nothing above minor". It isn't met; the open items are listed above and
 are the first job of the next session.
@@ -50,7 +57,7 @@ are the first job of the next session.
 `index.html` (54.9 KB): a WebGPU renderer written for this game on Abyssal Garden's skeleton. A 4 km heightfield that
 repeats in both directions with two canyons, shaped through the Grand Canyon's real rock sequence (Kaibab to
 Vishnu schist: cliffs and slopes, and the colour follows the same table), side canyons, gullies and buttes. A river with
-banks and foam. About 8,000 pinyon, juniper, bushes and tamarisk (Medium). A late-afternoon sun at 15 degrees with
+banks and foam. Several thousand pinyon, juniper, bushes and tamarisk (Medium keeps half). A late-afternoon sun at 15 degrees with
 shadows baked once as a shadow-height map, so the sun is decided in 3D. Height-dependent haze with one tunable distance.
 The eagle built in code (flapping, folding to dive, banking), a glide/flap/dive flight model with a coordinated turn,
 bump-and-slow collision, a chase camera, thermals marked by circling birds, wind and wingbeat sound made live.
