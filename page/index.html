@@ -1,4 +1,4 @@
-<title>Eagle Canyon First Flight</title>
+<title>Eagle Canyon Flights</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap">
 <style>
@@ -38,51 +38,46 @@ td, th { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lin
 .scroll { overflow-x: auto; }
 .pass { color: #2f7d3b; font-weight: 600; } .fail { color: #b3261e; font-weight: 600; }
 :root[data-theme="dark"] .pass, .pass { }
+.places { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.places figure { margin: 0; display: grid; gap: 6px; }
+.places img { width: 100%; border-radius: 8px; display: block; aspect-ratio: 16 / 9; object-fit: cover; }
+.places figcaption { font-size: 14px; color: var(--muted); }
+.places figcaption b { color: var(--fg); }
+details { border-top: 1px solid var(--line); padding-top: 20px; }
+summary { cursor: pointer; font-family: var(--display); font-size: 22px; font-weight: 600; }
 .q { display: grid; gap: 14px; padding-top: 24px; border-top: 1px solid var(--line); }
 @media (max-width: 640px) { .grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); } .grid .r, .grid .corner { display: none; } }
 </style>
 
 <main>
   <section class="stack col">
-    <h1>Eagle Canyon, first flight</h1>
-    <p class="lede">A bald eagle in the Grand Canyon, flying at dusk through haze. It's the first run of the bird game spike: a playable prototype in one web page, made entirely in code, kept apart from Chimneys. Three questions below. Your answers are saved on this page.</p>
+    <h1>Eagle Canyon, second flight</h1>
+    <p class="lede">You asked for more diversity in the terrain. The canyon is now four times bigger (8 km across) and changes as you fly: a slot, a stone bridge, a wide basin of temples, a rapids gorge, a waterfall, and a pine forest on a higher rim. One question below: fly for five minutes, then rate it again.</p>
   </section>
-
-  <img class="hero" src="hero.jpg" alt="The eagle gliding up the canyon toward the low sun, red walls on the left, haze ahead">
 
   <section class="stack col">
     <h2>How to try it</h2>
     <p>Open this file in Chrome: <span class="path">~/Documents/eagle-canyon/index.html</span>, then click Fly.</p>
-    <p><b>W</b> or <b>Space</b> flaps to climb. <b>A</b>/<b>D</b> or the mouse bank and turn. Mouse up and down tilts the nose. Hold <b>Shift</b> to dive, <b>S</b> to slow down. Birds circling in the air mark rising warm air: circle inside it to climb. <b>[</b> and <b>]</b> make the haze thinner or thicker while you fly. Hitting rock bumps you; you can't die.</p>
+    <p>Same controls as before. New: the keys <b>1</b> to <b>8</b> jump to the places below, so you can start anywhere. To find them yourself, follow the river: it leads through the slot, under the bridge and into the basin.</p>
   </section>
 
-  <section class="q" id="q-fog">
-    <div class="col stack">
-      <h2>1. Which haze distance feels like weather, not a wall?</h2>
-      <p>The haze is how the game stays light enough for this laptop: past the haze, nothing gets drawn. Here is the same spot at three distances.</p>
-      <p><b>Updated after your answers:</b> 600 m is now the default, and the haze is warmer and thinner at rim height. The 400 m and 600 m stills show the new haze; the 250 m ones are from before.</p>
-    </div>
-    <div class="grid">
-      <span class="corner"></span><span class="h">250 m</span><span class="h">400 m</span><span class="h">600 m</span>
-      <span class="r">Along a wall</span><img src="v2-250.jpg" alt="Along a wall, haze 250 m"><img src="v2-400.jpg" alt="Along a wall, haze 400 m"><img src="v2-600.jpg" alt="Along a wall, haze 600 m">
-      <span class="r">Rim edge</span><img src="v3-250.jpg" alt="Rim edge, haze 250 m"><img src="v3-400.jpg" alt="Rim edge, haze 400 m"><img src="v3-600.jpg" alt="Rim edge, haze 600 m">
-      <span class="r">Into the sun</span><img src="v6-250.jpg" alt="Toward the sun, haze 250 m"><img src="v6-400.jpg" alt="Toward the sun, haze 400 m"><img src="v6-600.jpg" alt="Toward the sun, haze 600 m">
-    </div>
-    <div class="col stack">
-      <p class="rec">Recommended: 600 m. It reads most like air in the reviews, and it costs only about 1.3 ms more per frame than 250 m</p>
-      <div class="choices" role="radiogroup" aria-label="Haze distance">
-        <label><input type="radio" name="fog" id="fog-250" value="250"> 250 m</label>
-        <label><input type="radio" name="fog" id="fog-400" value="400"> 400 m</label>
-        <label><input type="radio" name="fog" id="fog-600" value="600"> 600 m</label>
-        <label><input type="radio" name="fog" id="fog-none" value="none"> None of them</label>
-      </div>
-      <textarea id="fog-note" placeholder="Anything about the haze (optional)"></textarea>
+  <section class="stack">
+    <div class="col stack"><h2>The places</h2><p>Stills from the game, each with its key.</p></div>
+    <div class="places">
+      <figure><img src="r1.jpg" alt="The classic canyon: layered red walls and a tall butte, the river far below"><figcaption><b>1 · The canyon.</b> Where you start: layered walls, buttes, side canyons.</figcaption></figure>
+      <figure><img src="r2.jpg" alt="Inside the narrows: two sheer walls close together with a thin strip of sky"><figcaption><b>2 · The narrows.</b> A slot 330 m deep and about 15 m wide at the water.</figcaption></figure>
+      <figure><img src="r3.jpg" alt="A natural stone bridge spanning the gap between two walls"><figcaption><b>3 · The stone bridge.</b> Where the slot opens. Fly under it or over it.</figcaption></figure>
+      <figure><img src="r4.jpg" alt="A wide basin with rows of tiered rock temples fading into the haze"><figcaption><b>4 · The basin.</b> More than 2 km across, full of tiered temples.</figcaption></figure>
+      <figure><img src="r5.jpg" alt="Low over white rapids between dark gorge walls"><figcaption><b>5 · The gorge.</b> A deep inner gorge with rapids and boulders.</figcaption></figure>
+      <figure><img src="r6.jpg" alt="A waterfall falling from a side canyon into the river"><figcaption><b>6 · The waterfall.</b> From a side canyon with blue-green pools above it.</figcaption></figure>
+      <figure><img src="r7.jpg" alt="Tall ponderosa pines on a high plateau, the sun low in the haze"><figcaption><b>7 · The high rim.</b> 110 m higher on the east side, with a pine forest.</figcaption></figure>
+      <figure><img src="r8.jpg" alt="Looking up the canyon into the low sun, walls in silhouette"><figcaption><b>8 · Into the sun.</b> Up the canyon at the end of the afternoon.</figcaption></figure>
     </div>
   </section>
 
   <section class="q col" id="q-keep">
-    <h2>2. After five minutes, how much do you want to keep flying?</h2>
-    <p>Fly for five minutes and stop whenever you like. Then pick: 1 means "I was done before five minutes", 5 means "I didn't want to stop".</p>
+    <h2>After five minutes, how much do you want to keep flying?</h2>
+    <p>Fly for five minutes and stop whenever you like. Then pick: 1 means "I was done before five minutes", 5 means "I didn't want to stop". Last time you gave it 3.</p>
     <p class="rec">The prediction to beat: 4 or more</p>
     <div class="choices" role="radiogroup" aria-label="Want to keep flying, 1 to 5">
       <label><input type="radio" name="keep" id="keep-1" value="1"> 1</label>
@@ -91,71 +86,54 @@ td, th { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lin
       <label><input type="radio" name="keep" id="keep-4" value="4"> 4</label>
       <label><input type="radio" name="keep" id="keep-5" value="5"> 5</label>
     </div>
-    <textarea id="keep-note" placeholder="What made you stop, or keep going? How long did you fly? (optional)"></textarea>
-  </section>
-
-  <section class="q col" id="q-next">
-    <h2>3. What should exploring give you next?</h2>
-    <p>Pick any that appeal.</p>
-    <p class="rec">Recommended: places to find that fill in a map</p>
-    <div class="choices">
-      <label><input type="checkbox" name="next" id="next-map" value="map"> Places to find (a waterfall, a cliff dwelling, an old mine) that fill in a map</label>
-      <label><input type="checkbox" name="next" id="next-nest" value="nest"> A nest to come back to and build up</label>
-      <label><input type="checkbox" name="next" id="next-air" value="air"> Riding the air: thermals, updrafts, gusts that take skill</label>
-      <label><input type="checkbox" name="next" id="next-hunt" value="hunt"> Fishing: dive at the river to catch fish</label>
-      <label><input type="checkbox" name="next" id="next-time" value="time"> Time passing: the haze and light change from dawn to night</label>
-      <label><input type="checkbox" name="next" id="next-view" value="view"> Nothing more: the view is enough</label>
-    </div>
-    <textarea id="next-note" placeholder="Your own idea (optional)"></textarea>
-  </section>
-
-  <section class="col stack">
-    <button id="save" type="button">Save my answers</button>
-    <p id="status" aria-live="polite">Loading saved answers…</p>
+    <textarea id="keep-note" placeholder="Which place did you like most? What made you stop, or keep going? (optional)"></textarea>
+    <button id="save" type="button">Save my answer</button>
+    <p id="status" aria-live="polite">Loading saved answer…</p>
   </section>
 
   <section class="q" id="numbers">
     <div class="col stack">
       <h2>What we measured</h2>
-      <p>Predictions written on 15 Nov, before anything was built. Measured on this MacBook in Chrome, with Unity closed and one copy of the game running.</p>
+      <p>Predictions written before building, measured on this MacBook in Chrome at full 1080p with the haze at 600 m.</p>
     </div>
     <div class="scroll"><table>
-<thead><tr><th>#</th><th>Prediction (15 Nov)</th><th>Measured (16 Nov)</th><th>Result</th></tr></thead>
+<thead><tr><th>#</th><th>Prediction</th><th>Measured</th><th>Result</th></tr></thead>
 <tbody>
-<tr><td>P0</td><td>Abyssal Garden unchanged, Medium, 1080p window: the baseline</td><td>Holds 60 fps only by shrinking to 942×530 (24% of the pixels) at its shortest draw distance; GPU 12.9 ms</td><td>Recorded</td></tr>
-<tr><td>P1</td><td>Eagle build, Medium, haze 400 m, full 1080p: at least 60 fps, GPU 12 ms or less, no frame over 25 ms</td><td>60 fps; GPU 7.0 ms on average (slowest 1% 12.9 ms, worst 14.7 ms); worst frame 18.3 ms</td><td class="pass">Pass</td></tr>
-<tr><td>P2</td><td>GPU time at 600 m no more than 1.5 times the time at 250 m</td><td>8.3 ms vs 6.9 ms: 1.19 times. Haze distance is a weak cost lever here: the per-pixel shading costs more than the distance</td><td class="pass">Pass</td></tr>
-<tr><td>P3</td><td>The file is 300 KB or less, minified</td><td>55 KB (23 KB zipped)</td><td class="pass">Pass</td></tr>
-<tr><td>P4</td><td>After 5 minutes you rate "keep flying" 4 or more, and pick a haze that reads as weather</td><td>3 out of 5 ("I need more diversity in my terrain"); haze 600 m</td><td class="fail">Miss</td></tr>
-<tr><td>Kill</td><td>Under 45 fps at 720p with haze 250 m kills this approach</td><td>60 fps, GPU 4.2 ms</td><td class="pass">Far from it</td></tr>
+<!--R2ROWS-->
 </tbody></table></div>
   </section>
+
+  <details>
+    <summary>First flight (your answers are kept)</summary>
+    <div class="stack col" style="margin-top:16px">
+      <p>Haze: you picked 600 m, now the default. Keep flying: 3 of 5 ("I need more diversity in my terrain"). What exploring should give next: all five ideas (places that fill in a map, a nest, riding the air, fishing, time of day). Those wait for later runs.</p>
+      <img class="hero" src="hero.jpg" alt="The first version: the eagle gliding up the canyon toward the low sun">
+    </div>
+  </details>
 </main>
 
 <script>
-const DOC = 'answers/eagle-1';
+// run 2 saves to its own doc; the first run's answers stay in answers/eagle-1
+const DOC = 'answers/eagle-2';
 const $ = (id) => document.getElementById(id);
 const status = $('status');
 let db = null;
 function read() {
-  const r = (n) => (document.querySelector(`input[name="${n}"]:checked`) || {}).value || null;
-  return { fog: r('fog'), fogNote: $('fog-note').value, keep: r('keep') ? +r('keep') : null, keepNote: $('keep-note').value,
-    next: [...document.querySelectorAll('input[name="next"]:checked')].map((i) => i.value), nextNote: $('next-note').value };
+  const k = document.querySelector('input[name="keep"]:checked');
+  return { keep: k ? +k.value : null, keepNote: $('keep-note').value };
 }
 function fill(a) {
   if (!a) return;
-  if (a.fog) { const i = $('fog-' + a.fog); if (i) i.checked = true; }
   if (a.keep) { const i = $('keep-' + a.keep); if (i) i.checked = true; }
-  (a.next || []).forEach((v) => { const i = $('next-' + v); if (i) i.checked = true; });
-  $('fog-note').value = a.fogNote || ''; $('keep-note').value = a.keepNote || ''; $('next-note').value = a.nextNote || '';
+  $('keep-note').value = a.keepNote || '';
 }
 (async () => {
   const timer = setTimeout(() => { if (!db) status.textContent = 'Saving is not available in this view. You can still read the page.'; }, 10000);
   db = await window.claude?.use?.('db');
   clearTimeout(timer);
   if (!db) { status.textContent = 'Saving is not available in this view. You can still read the page.'; $('save').disabled = true; return; }
-  try { const s = await db.doc(DOC).get(); if (s && s.exists) { fill(s.data()); status.textContent = 'Your saved answers are filled in.'; } else status.textContent = 'Nothing saved yet.'; }
-  catch { status.textContent = 'Could not load saved answers.'; }
+  try { const s = await db.doc(DOC).get(); if (s && s.exists) { fill(s.data()); status.textContent = 'Your saved answer is filled in.'; } else status.textContent = 'Nothing saved yet.'; }
+  catch { status.textContent = 'Could not load your saved answer.'; }
 })();
 $('save').addEventListener('click', async () => {
   if (!db) return;

@@ -36,6 +36,8 @@
     full,
     view(i) { this.hideMenu(); mode = 2; viewAt(i); },
     nviews: () => VIEWS.length,
+    // the benchmark time at which the path crosses z (the bridge: EC.tAt(BRIDGE_Z))
+    tAt(z) { for (let t = 0; t < FLYT; t += 0.05) { flyRaw(flyS(t)); if (P3[2] >= z) return +t.toFixed(2); } return -1; },
     setView(i, v) { VIEWS[i] = v; this.view(i); },
     prof(z, r = 0, w = 600, st = 40) { const o = []; for (let d = -w; d <= w; d += st) o.push(round(hAt(rX(r, z) + d, z))); return o.join(' '); },
     fly(t) { this.hideMenu(); mode = 1; F[FLT] = t; },

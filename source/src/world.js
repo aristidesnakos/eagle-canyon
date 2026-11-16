@@ -21,12 +21,12 @@ const rimRise = (x, z) => RIM * sstep(0, 900, wrapd(x - riverX(z))) * sstep(0, 9
 
 // Regions: each river passes through canyons of different character, blended over RTR m.
 // [half-width m, wall noise, gullies, side canyons | butte threshold (1+: none), butte height min, max, inner-gorge
-//  squeeze | rapids 0-1, extra river half-width m, 0, 0]
+//  squeeze | rapids 0-1, extra river half-width m, slot sandstone 0-1, thinner haze 0-1]
 const RTYPES = {
   classic: [430, 1.0, 1.0, 1.0, 0.62, 0.45, 0.97, 1.0, 0.25, 0, 0, 0], // the canyon of run 1: spurs, buttes, side canyons
-  narrows: [62, 0.22, 0, 0.25, 1.5, 0, 0, 1.0, 0.75, 6, 0, 0],         // a slot: sheer walls 330 m high, 15 m of river
-  basin: [1250, 1.1, 0.8, 0.7, 0.30, 0.55, 0.99, 1.6, 0.15, 0, 0, 0],  // wide open, full of tiered temples and buttes
-  gorge: [600, 0.8, 1.0, 1.0, 0.72, 0.45, 0.95, 2.6, 1.0, 0, 0, 0],    // a deep dark inner gorge with rapids and boulders
+  narrows: [62, 0.22, 0, 0.25, 1.5, 0, 0, 1.0, 0.3, 6, 1, 0],          // a slot of orange sandstone: walls 330 m high, 15 m of river
+  basin: [1250, 1.1, 0.8, 0.7, 0.30, 0.55, 0.99, 1.6, 0.15, 0, 0, 1],  // wide open, full of tiered temples, clearer air
+  gorge: [600, 0.8, 1.0, 1.0, 0.72, 0.45, 0.95, 2.6, 1.0, 0, 0, 0],    // a deep inner gorge of grey schist, rapids, boulders
 };
 const RNAMES = Object.keys(RTYPES);
 // [start z, type] along river A, then river B
@@ -35,6 +35,14 @@ const RSEQ = [
   [[0, 'gorge'], [1300, 'basin'], [3400, 'classic'], [5000, 'narrows'], [5900, 'classic']],
 ];
 const RTR = 350;
+// the region parameters at z along river r (the same blend as regAt in the shaders)
+const regAt = (r, z0) => {
+  const S = RSEQ[r], n = S.length, z = ((z0 % L) + L) % L; let i = 0;
+  for (let k = 1; k < n; k++) if (z >= S[k][0]) i = k;
+  const j = (i + 1) % n, zn = j ? S[j][0] : L, w = sstep(zn - RTR, zn, z), a = RTYPES[S[i][1]], b = RTYPES[S[j][1]];
+  return a.map((v, k) => mix(v, b[k], w));
+};
+const nearB = (x, z) => abs(wrapd(x - riverX2(z))) < abs(wrapd(x - riverX(z)));
 
 // Landmarks (both on river A): a stone bridge across the river where the narrows open into the basin, and a waterfall
 // where a hanging side canyon with travertine pools meets the river from the sunlit east.
@@ -54,16 +62,16 @@ const SIDEN = 13, SIDE = (() => {
 const LAYERS = [
   // name            w      t     k  colour
   ['river banks',   0.04,  0.01, 3, [0.74, 0.64, 0.50]],
-  ['Vishnu schist', 0.07,  0.22, 0, [0.47, 0.39, 0.35]],
+  ['Vishnu schist', 0.07,  0.22, 0, [0.44, 0.40, 0.42]],
   ['Tapeats',       0.02,  0.05, 0, [0.52, 0.38, 0.27]],
   ['Bright Angel',  0.17,  0.10, 1, [0.60, 0.58, 0.45]],
   ['Muav',          0.03,  0.05, 0, [0.62, 0.56, 0.48]],
   ['Redwall',       0.05,  0.12, 0, [0.74, 0.38, 0.25]],
   ['Supai',         0.24,  0.17, 2, [0.80, 0.43, 0.26]],
   ['Hermit',        0.16,  0.10, 1, [0.66, 0.30, 0.19]],
-  ['Coconino',      0.04,  0.07, 0, [0.86, 0.73, 0.55]],
-  ['Toroweap',      0.12,  0.05, 2, [0.80, 0.62, 0.46]],
-  ['Kaibab',        0.06,  0.06, 0, [0.80, 0.69, 0.54]],
+  ['Coconino',      0.04,  0.07, 0, [0.80, 0.64, 0.46]],
+  ['Toroweap',      0.12,  0.05, 2, [0.74, 0.55, 0.40]],
+  ['Kaibab',        0.06,  0.06, 0, [0.72, 0.59, 0.45]],
 ];
 const NL = LAYERS.length;
 const wgslArr = (f) => `array<f32, ${NL}>(${LAYERS.map((l) => f(l).toFixed(4)).join(', ')})`;
@@ -140,20 +148,20 @@ function meshTree(lo) {
   for (const [bx, by, bz, r, ry] of blobs) icosphere(m, lo ? 0 : 1, (x, y, z) => { const k = 0.82 + 0.3 * vnoise(x * 2.2 + bx * 5, y * 2.2 + 9, z * 2.2); return [bx + x * r * k, by + y * ry * k, bz + z * r * k]; });
   return m.build();
 }
-// ponderosa pine, about 22 m: a straight orange-brown trunk bare for a quarter of its height, then a dense, slightly
-// ragged crown of overlapping clumps, broad low down and narrowing to a rounded top; lo = far version
+// ponderosa pine, about 22 m: a straight orange-brown trunk bare for almost half its height, then an open, irregular
+// crown of flattish branch masses, broadest in the middle, sparse at the top; lo = far version
 function meshPine(lo) {
   const m = new Mesh();
-  m.c = [0.46, 0.27, 0.16, 0]; m.lathe(lo ? [[0, 0.45], [12, 0.15]] : [[0, 0.5], [0.6, 0.4], [9, 0.28], [16, 0.16], [21, 0.05]], lo ? 4 : 6);
+  m.c = [0.48, 0.28, 0.16, 0]; m.lathe(lo ? [[0, 0.7], [17, 0.3]] : [[0, 0.55], [0.6, 0.45], [10, 0.32], [17, 0.18], [22, 0.06]], lo ? 4 : 7);
   for (let k = 0; k < m.p.length; k += 3) { const y = m.p[k + 1], z = m.p[k + 2]; m.p[k + 1] = z; m.p[k + 2] = -y; }
   m.c = [0.20, 0.26, 0.13, 0];
   rseed(5);
-  const clumps = lo ? [[0, 10, 0, 3.4, 4.6], [0, 16.5, 0, 2.3, 3.6]] : [];
-  if (!lo) for (let i = 0; i < 18; i++) {
-    const t = i / 17, y = 5.5 + t * 15.5, a = i * 2.4, R = 3.3 * (1 - t * 0.7);
-    clumps.push([cos(a) * R * 0.55, y, sin(a) * R * 0.55, 0.9 + R * 0.5 + rr(-0.15, 0.2), 1.6]);
+  const clumps = lo ? [[0, 14.5, 0, 3.3, 3.8], [0.6, 19.5, 0.3, 2.0, 2.2]] : [];
+  if (!lo) for (let i = 0; i < 22; i++) {
+    const t = i / 21, y = 9 + t * 13 + rr(-0.5, 0.5), a = i * 2.39 + rr(-0.4, 0.4), R = 3.6 * sin(PI * (0.2 + 0.75 * t)) * (1 - 0.3 * t);
+    clumps.push([cos(a) * R * 0.85, y, sin(a) * R * 0.85, 1.05 + 0.5 * (1 - t) + rr(-0.15, 0.2), 0.55]);
   }
-  for (const [bx, by, bz, r, ry] of clumps) icosphere(m, lo ? 0 : 1, (x, y, z) => { const k = 0.82 + 0.3 * vnoise(x * 2 + bx * 3, y * 2 + by, z * 2); return [bx + x * r * k, by + y * ry * k * 0.75, bz + z * r * k]; });
+  for (const [bx, by, bz, r, ry] of clumps) icosphere(m, lo ? 0 : 1, (x, y, z) => { const k = 0.78 + 0.4 * vnoise(x * 2 + bx * 3, y * 2 + by, z * 2); return [bx + x * r * k, by + y * r * ry * k, bz + z * r * k]; });
   return m.build();
 }
 // ---------------------------------------------------------------- landmarks (built after the heightmap, need hAt)
@@ -205,12 +213,12 @@ function buildFall() {
     }
     for (let r = 0; r < rows; r++) for (let c = 0; c < 8; c++) m.quad(R[r][c], R[r][c + 1], R[r + 1][c + 1], R[r + 1][c]);
   };
-  sheet(FALL_LIP, FALL_TOP + 0.3, FALL_DROP + 1.5, 5.5, 18, FALL_OUT);
+  sheet(FALL_LIP, FALL_TOP + 0.3, FALL_DROP + 1.5, 6.5, 18, FALL_OUT);
   for (let i = 0; i < NPOOL; i++) {
     const s0 = FALL_LIP + POOL * i, wl = FALL_TOP + POOLH * i, R = [];
     for (let s = s0; s <= s0 + POOL + 0.1; s += 5) {
       const [x, z, dx, dz] = sideAt(min(s, s0 + POOL)); m.c = [-dx * 0.5 + 0.5, -dz * 0.5 + 0.5, 1, 0];
-      R.push([m.v(x + dz * 12, wl, z - dx * 12, -1), m.v(x - dz * 12, wl, z + dx * 12, 1)]);
+      const hw = i ? 11 : mix(6, 11, sstep(s0, s0 + 15, s)); R.push([m.v(x + dz * hw, wl, z - dx * hw, -1), m.v(x - dz * hw, wl, z + dx * hw, 1)]);
     }
     for (let k = 0; k < R.length - 1; k++) m.quad(R[k][0], R[k][1], R[k + 1][1], R[k + 1][0]);
     if (i > 0) sheet(s0, wl + 0.25, POOLH + 0.4, 3.5, 3, 0.8);
@@ -260,7 +268,7 @@ function meshEagle() {
 // distance), look ahead m, look offset as a share of the wall distance (negative: the other side), look height, river].
 // Keys 1-8 jump to them; tools/views.sh renders them. (viewPose, the path: main.js, they need hAt)
 const VIEWS = [
-  [560, 1, 120, 0.3, 380, -0.5, 110, 0],      // 1 the classic canyon from half way up a wall
+  [450, 1, 200, 0.75, 420, -0.55, 140, 0],    // 1 the classic canyon from half way up a wall
   [2050, 1, 60, 0.3, 200, -0.3, 70, 0],      // 2 the narrows: a slot 330 m deep
   [2300, 1, 95, 0.15, 150, 0, 130, 0],       // 3 the stone bridge where the narrows open
   [3500, -1, 260, 0.2, 500, -0.5, 180, 0],   // 4 the basin and its temples

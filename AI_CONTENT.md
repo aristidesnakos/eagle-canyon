@@ -6,6 +6,8 @@ Every AI-made piece of art, audio or text, with the tool and the date. AI-writte
 |---|---|---|---|
 | Menu and control text, the page title "Eagle Canyon" (a working title) | `source/template.html` | Claude (Opus 5.5), Claude Code | 16 Nov 2026 |
 | README, CREDITS, RESULTS | `*.md` | Claude (Opus 5.5), Claude Code | 16 Nov 2026 |
+| Run 2: place names in the README and on Ari's page (the narrows, the stone bridge, the basin, the gorge, the waterfall, the high rim), the page text and captions, the run 2 sections of README and RESULTS | `README.md`, `RESULTS.md`, `page/index.html`, `source/template.html` | Claude (Opus 5.5), Claude Code | 16 Nov 2026 |
+| Visual reviews of the renders (critic subagent) quoted in RESULTS | `RESULTS.md` | Claude (Opus 5.5), Claude Code subagent | 16 Nov 2026 |
 
 No AI image, model, sound or voice generator was used. The pictures and sounds are produced by code at run time
 (the code itself is AI-written, which needs no entry).

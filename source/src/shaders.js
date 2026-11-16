@@ -133,7 +133,7 @@ fn terr(u: f32) -> f32 {
   t *= 1. + rg.a.y * (.55 * (pf(q * 10., 10. * K, 3) - .5) + .30 * (pf(q * 26., 26. * K, 3) - .5));
   t += .06 * rg.a.y * (pf(q * 90., 90. * K, 2) - .5);
   // buttresses and joints: metre-scale ins and outs along every wall, so cliffs are not smooth sheets
-  t += 9. / halfW * (pf(q * vec2f(520., 520.) + vec2f(pn(q * 60., 60. * K) * 2.), 520. * K, 2) - .5);
+  t += 9. * (1. - .7 * rg.c.z) / halfW * (pf(q * vec2f(520., 520.) + vec2f(pn(q * 60., 60. * K) * 2.), 520. * K, 2) - .5);
   var e = sat(1. - t);
   // gullies: narrow side canyons every few hundred metres that bite into the walls
   let gq = q * 22. + vec2f(pf(q * 30., 30. * K, 2), pf(q * 30. + 3.3, 30. * K, 2)) * .6;
@@ -173,13 +173,14 @@ fn terr(u: f32) -> f32 {
     y = YR + mix(-7., -.4, ss(.32, .5, tl)) + 4.4 * pow(ss(.5, 1., tl), 1.3);
     // boulders in the rapids: rounded rocks breaking the surface, more where the rapids are strong
     if (rg.c.x > .3) {
-      let bc = p / 8.; let bi = floor(bc); var bt = -9.;
+      // (big, low domes: anything narrower than a few texels would come out as a spike on the 2 m mesh)
+      let bc = p / 16.; let bi = floor(bc); var bt = -9.;
       for (var j = -1; j <= 1; j++) { for (var i = -1; i <= 1; i++) {
-        let cc = bi + vec2f(f32(i), f32(j)); let cw = cc - WL / 8. * floor(cc / (WL / 8.));
+        let cc = bi + vec2f(f32(i), f32(j)); let cw = cc - WL / 16. * floor(cc / (WL / 16.));
         let hh = h33(vec3f(cw, 17.));
-        if (hh.z > 1. - .22 * rg.c.x) {
-          let r = 1.3 + 2.2 * hh.x; let dd = length(bc - cc - .5 - (hh.xy - .5) * .5) * 8.;
-          bt = max(bt, YR - 1.2 + (1.6 + 1.6 * hh.y) * sqrt(sat(1. - dd * dd / (r * r))) - 9. * step(r, dd));
+        if (hh.z > 1. - .45 * rg.c.x) {
+          let r = 3.5 + 3. * hh.x; let dd = length(bc - cc - .5 - (hh.xy - .5) * .4) * 16.;
+          bt = max(bt, YR - 1.4 + (1.9 + 1.2 * hh.y) * pow(sat(1. - dd * dd / (r * r)), .6) - 9. * step(r, dd));
         }
       } }
       if (tl < .4) { y = max(y, bt); }
@@ -328,7 +329,7 @@ fn odepth(c: vec3f, p: vec3f) -> f32 {
   if (abs(dy) > .5) { avg = (Fg(p.y) - Fg(c.y)) / dy; }
   // a power of the distance rather than plain exponential fog: near air stays clear, the far air closes in
   // thinner than FOG at rim height, twice as thick at the river
-  let de = l * (.72 + KD * avg) / g.fogp.x;
+  let de = l * (.72 + KD * (1. - .8 * g.mis.y) * avg) * (1. - .2 * g.mis.y) / g.fogp.x;
   // clear for the first third of the distance, then closing in: 2.8 (6% left) at FOG
   return 2.8 * pow(max(de - .12, 0.) / .88, 1.35);
 }
@@ -383,7 +384,7 @@ fn sunVis(p: vec3f, b: vec4f) -> f32 { return ss(-2.5, 2.5, p.y - b.r + 1.5); }
 fn lightAmb(n: vec3f, ao: f32) -> vec3f {
   let away = sat(dot(n.xz, -normalize(g.sun.xz)) * .5 + .5);
   return vec3f(.30, .38, .55) * .7 * (.55 + .45 * n.y) * (.3 + .7 * ao)
-       + vec3f(.70, .36, .18) * .62 * (.7 - .3 * n.y) * (.72 + .18 * (1. - ao)) * (.45 + 1.1 * away * away);
+       + vec3f(.70, .36, .18) * .62 * (.7 - .3 * n.y) * (.8 + .35 * (1. - ao)) * (.75 + .8 * away * away);
 }
 fn fin(c: vec3f) -> vec4f { return vec4f(c, 1.); }
 `;
@@ -393,6 +394,7 @@ const S_ROCK = /*wgsl*/`
 // rock colour from height through the layer table (stretched where the high rim has risen), with sub-beds, desert
 // varnish, soil on the flats and travertine around the waterfall's pools
 fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
+  let rgn = regAt(select(0, 1, nearB(p.xz)), p.z); let sand = rgn.c.z; let gorge = ss(.5, .95, rgn.c.x);
   let yy = (p.y - YR) / (DP + b.b * RIM) + (vn(vec3f(p.x * .003, 1.3, p.z * .003)) - .5) * .008;
   var acc = 0.; var i = 0; var f = 0.;
   for (; i < NL - 1; i++) { if (yy < acc + LT[i]) { break; } acc += LT[i]; }
@@ -409,6 +411,18 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
   // thin beds within each layer: horizontal, so they read on cliffs as strata, not smears
   let bed = vn(vec3f(p.x * .002, p.y * .11, p.z * .002)) * .55 + mix(vn(vec3f(p.x * .01, p.y * .45, p.z * .01)), .5, ss(.4, 1.4, fw * .5)) * .45;
   c *= .74 + .48 * bed;
+  // the gorge: grey-violet schist with dipping foliation all the way up to the Redwall
+  if (gorge > .01) {
+    let fol = (p.x * .55 + p.z * .83) * .045 + p.y * .02 + vn(p * vec3f(.015, .01, .015)) * 1.4;
+    let sc = vec3f(.13, .13, .19) * (.7 + .55 * vn(vec3f(fol * 3., p.y * .004, 1.)));
+    c = mix(c, sc, gorge * ss(.47, .40, yy));
+  }
+  // the narrows: smooth orange sandstone with long, gently curving cross-beds instead of the layer table
+  if (sand > .01) {
+    let xb = p.y * .09 + vn(p * vec3f(.012, .02, .012)) * 3. + vn(p * .05) * .4;
+    let ss1 = vec3f(.62, .25, .10) * (.82 + .3 * vn(vec3f(xb, 1., 2.)) + .1 * sin(xb * 6.2831853));
+    c = mix(c, ss1, sand * (1. - b.a));
+  }
   // a little desert varnish down steep faces
   let steep = 1. - ss(.35, .8, n.y);
   let st = mix(vn(vec3f(p.x * .05, p.y * .02, p.z * .05)), .5, ss(.3, 1., fw * .08));
@@ -419,10 +433,10 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
   let flat = ss(.72, .93, n.y);
   var soil = mix(c * 1.05, vec3f(.11, .085, .05), .4);
   if (i == NL - 1) { soil = mix(vec3f(.15, .105, .062), vec3f(.10, .09, .05), b.b); } // pine litter on the high rim
-  if (i == 3) { soil = vec3f(.13, .105, .07); }
+  if (i == 3) { soil = vec3f(.15, .11, .07); }
   if (i == 0) { soil = vec3f(.25, .19, .11); }
-  let scrub = ss(.55, .8, mix(vn(p * vec3f(.05, .04, .05)), .3, ss(.3, .9, fw * .05))) * select(.3, .5, i == 3 || i == NL - 1);
-  soil = mix(soil, soil * vec3f(.6, .62, .5), scrub);
+  let scrub = ss(.55, .8, mix(vn(p * vec3f(.05, .04, .05)), .3, ss(.3, .9, fw * .05))) * select(.18, .3, i == 3 || i == NL - 1);
+  soil = mix(soil, soil * vec3f(.72, .74, .62), scrub);
   c = mix(c, soil, flat * .85);
   // travertine: cream-white rock where the waterfall's water runs
   return mix(c, vec3f(.50, .45, .34) * (.85 + .3 * bed), b.a * .8);
@@ -430,7 +444,14 @@ fn rock(p: vec3f, n: vec3f, fw: f32, b: vec4f) -> vec3f {
 // lit rock at p with smooth normal n: relief by bump-mapping a noise height through screen derivatives
 // (bedding ledges every 7 m, lumps and grit, faded with distance before they shimmer)
 fn shadeRock(p: vec3f, n0: vec3f, b: vec4f) -> vec3f {
+  // On steep faces the 2 m normal map varies only across the face, which paints vertical streaks down tall cliffs:
+  // there, lean on a normal from 8 m height differences instead.
   var n = n0;
+  let stp = 1. - ss(.45, .75, n0.y);
+  if (stp > .01) {
+    let e = 8.; let hx = hl(2, p.xz + vec2f(e, 0.)) - hl(2, p.xz - vec2f(e, 0.)); let hz = hl(2, p.xz + vec2f(0., e)) - hl(2, p.xz - vec2f(0., e));
+    n = normalize(mix(n0, normalize(vec3f(-hx, 2. * e, -hz)), stp * .7));
+  }
   let dist = length(p - g.cam.xyz);
   let bp = abs(fract(p.y / 7. + vn(p * vec3f(.01, .03, .01)) * .5) - .5) * 2.; // a continuous triangle wave: ledges every 7 m
   let fw = fwidth(p.y) + fwidth(p.x) * .3 + fwidth(p.z) * .3; // metres per pixel, to fade detail before it shimmers
@@ -446,7 +467,7 @@ fn shadeRock(p: vec3f, n0: vec3f, b: vec4f) -> vec3f {
   let ndl = sat(dot(n, g.sun.xyz));
   var c = alb * (SUNC * ndl * sh + lightAmb(n, b.g));
   // cavities under ledges and between lumps hold less light
-  c *= .78 + .3 * sat(hn / 2.4);
+  c *= .88 + .16 * sat(hn / 2.4);
   // wet sand at the waterline
   c *= 1. - .35 * ss(YR + .8, YR + .1, p.y);
   return c;
@@ -510,7 +531,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
 }
 @fragment fn fs(i: VO, @builtin(front_facing) ff: bool) -> @location(0) vec4f {
   var n = normalize(i.n); if (!ff) { n = -n; }
-  var b = bake(i.wp); b.g = .45 + .55 * sat(n.y * .5 + .5); b.a = 0.;
+  var b = bake(i.wp); b.g = .15 + .85 * sat(n.y * .5 + .5); b.a = 0.;
   return fin(atm(shadeRock(i.wp, n, b), i.wp));
 }
 `;
@@ -582,15 +603,18 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f };
   let b = bake(p); let sh = sunVis(p, b) * eagleSh(p);
   var refl = sky(vec3f(R.x, abs(R.y), R.z)) * mix(.55, 1., b.g) * vec3f(.75, .9, .8);
   refl += SUNC * 6. * pow(sat(dot(R, g.sun.xyz)), 300.) * sh;
-  let body = vec3f(.03, .10, .06) * (SUNC * .25 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.2);
+  let body = vec3f(.06, .10, .055) * (SUNC * .25 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.2);
   let sand = vec3f(.30, .24, .16) * (SUNC * .4 * sh + lightAmb(vec3f(0., 1., 0.), b.g));
   var c = mix(sand, body, ss(.0, 1.8, depth));
   c = mix(c, refl, fr * .7);
   // rapids (standing waves downstream of the boulders), the foam line at the banks and around rocks, and the
   // churned water under the waterfall
-  let rap = ss(.68 - .2 * rp, .8 - .2 * rp, vn(vec3f(q * vec2f(.06, .03), t * .05))) * ss(1.2, 3.5, depth) * (.4 + .6 * rp);
+  let along = dot(p.xz, fl); let across = dot(p.xz, vec2f(-fl.y, fl.x));
+  let streak = vn(vec3f(across * .35, (along - t * 5.) * .06, t * .2)) * .6 + vn(vec3f(across * 1.1, (along - t * 6.) * .2, 1.)) * .4;
+  let rap = max(ss(.68 - .2 * rp, .8 - .2 * rp, vn(vec3f(q * vec2f(.06, .03), t * .05))) * (.4 + .6 * rp),
+                ss(.75, .55, depth / 3.) * ss(.45, .7, streak) * rp) * ss(.3, 1.5, depth);
   let fd = length(wrap2(p.xz - FALL_BASE));
-  let plunge = ss(18., 3., fd) * (.6 + .4 * vn(vec3f(q * .7, t * 2.)));
+  let plunge = ss(26., 4., fd) * (.55 + .45 * vn(vec3f(q * .7, t * 2.)));
   let foam = max(max(ss(.6 + .5 * rp, .1, depth) * .6, rap * ss(.5, .75, vn(vec3f(q * 1.3, t * 1.5)))), plunge);
   c = mix(c, vec3f(.85, .85, .8) * (SUNC * .35 * sh + lightAmb(vec3f(0., 1., 0.), b.g) * 1.3), foam * .75);
   return fin(atm(c, p));
@@ -616,7 +640,7 @@ struct VO { @builtin(position) cp: vec4f, @location(0) wp: vec3f, @location(1) n
   if (k > .5) { leaf = vec3f(.030, .042, .034); }
   if (k > 1.5) { leaf = vec3f(.085, .080, .055); }
   if (k > 2.5) { leaf = vec3f(.050, .11, .025); }
-  if (pine) { leaf = vec3f(.030, .046, .020); }
+  if (pine) { leaf = vec3f(.034, .056, .018); }
   leaf *= .8 + .4 * tn;
   o.col = select(pow(i.col.rgb, vec3f(2.2)), leaf, i.col.g > i.col.r);
   o.h = i.p.y / select(3., 21., pine);

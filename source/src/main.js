@@ -214,6 +214,7 @@ if (hasTS) {
 
 // ---------------------------------------------------------------- camera and drawing
 const NEAR = 0.15;
+let HZ = 0;
 const cam = { f: [0, 0, 1], r: [1, 0, 0], u: [0, 1, 0], tanY: 0.6 };
 let eagleOn = true, DBG = 0;
 // aims the camera from eye E at target T with roll angle rl
@@ -264,7 +265,10 @@ function render() {
   m[24] = FOG; m[25] = FOG * 1.25; m[26] = YTOP; m[27] = DBG;
   m[32] = rx * tx; m[33] = ry * tx; m[34] = rz * tx; m[36] = ux * ty; m[37] = uy * ty; m[38] = uz * ty;
   m[40] = fx; m[41] = fy; m[42] = fz; m[43] = NEAR;
-  m[60] = 1.0; m[61] = 0; m[62] = sstep(18, 9, F[SPD]);
+  // clearer air while the camera is in a region that asks for it (the basin), eased so it never jumps
+  const open = regAt(nearB(cx, cz) ? 1 : 0, cz)[11];
+  HZ += (open - HZ) * (mode === 2 ? 1 : 0.03);
+  m[60] = 1.0; m[61] = HZ; m[62] = sstep(18, 9, F[SPD]);
   // terrain levels: centred on the camera, snapped to twice their cell size
   let nLv = 0;
   for (let k = 0; k < 6; k++) {
