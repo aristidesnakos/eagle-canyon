@@ -4,9 +4,12 @@
 engine, everything made in code. The bird game spike (Chimneys repo, `docs/studio/BIRD_GAME_SPIKE.md`): run 1 built it,
 run 2 made the world varied, run 3 made it sharp up close, all 16 Nov 2026. Built on Abyssal Garden (see `CREDITS.md`).
 
+The code is on GitHub: https://github.com/aristidesnakos/eagle-canyon
+
 ## Play
 
-Open `index.html` in Chrome or Edge on a desktop computer (WebGPU). Click **Fly**.
+Clone the repository or download `index.html`, then open it in Chrome or Edge on a desktop computer (WebGPU). Click
+**Fly**.
 
 | | |
 |---|---|
