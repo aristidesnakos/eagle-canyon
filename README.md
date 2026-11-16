@@ -16,7 +16,7 @@ Open `index.html` in Chrome or Edge on a desktop computer (WebGPU). Click **Fly*
 | Dive (wings folded) | hold `Shift` |
 | Flare and slow down | hold `S` |
 | Thinner / thicker haze | `[` / `]` (50 m steps) |
-| Viewpoints | `1` to `6` |
+| Viewpoints | `1` to `8` |
 | Stats | `H` |
 
 Gliding sinks slowly; diving trades height for speed and pulling up trades it back. Touching rock bumps and slows you;

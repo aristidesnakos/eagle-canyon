@@ -32,9 +32,11 @@ const colorAtt = (view, clear) => ({ view, loadOp: clear ? 'clear' : 'load', sto
 const NMIP = 5;
 
 // ---------------------------------------------------------------- world textures
+// heights (full resolution, mips), the bake (sun, sky, rim, travertine: half resolution), ground normals, tree shadows
 const tH = tex(NT, NT, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING | TU.COPY_DST, { mips: NMIP });
-const tB = tex(NT, NT, 'rgba16float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING);
-const tM = tex(NT, NT, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING | TU.COPY_DST, { mips: NMIP }); // max chain, load time only
+const tB = tex(NT / 2, NT / 2, 'rgba16float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING);
+const tM = tex(NT / 2, NT / 2, 'r32float', TU.TEXTURE_BINDING | TU.STORAGE_BINDING, { mips: NMIP - 1 }); // max chain from mip 1, load time only
+const tN = tex(NT, NT, 'rg8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT);
 const tT = tex(NT, NT, 'r8unorm', TU.TEXTURE_BINDING | TU.RENDER_ATTACHMENT);
 const sRep = device.createSampler({ addressModeU: 'repeat', addressModeV: 'repeat', magFilter: 'linear', minFilter: 'linear' });
 const sClamp = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
@@ -49,27 +51,39 @@ let H;
   const size = NT * NT * 4;
   const p = device.createComputePipeline({ layout: 'auto', compute: { module: mod(W_GEN), entryPoint: 'main' } });
   const bh = device.createBuffer({ size, usage: BU.STORAGE | BU.COPY_SRC }), br = device.createBuffer({ size, usage: BU.MAP_READ | BU.COPY_DST });
-  const e = device.createCommandEncoder(), c = e.beginComputePass();
-  c.setPipeline(p); c.setBindGroup(0, device.createBindGroup({ layout: p.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: bh } }] }));
-  c.dispatchWorkgroups(NT / 8, NT / 8); c.end();
+  // the heights in four strips, one submit each, so no single GPU job runs long
+  const CH = 4;
+  for (let k = 0; k < CH; k++) {
+    const e = device.createCommandEncoder(), c = e.beginComputePass(), ro = buf(new Uint32Array([k * NT / CH, 0, 0, 0]), BU.UNIFORM);
+    c.setPipeline(p); c.setBindGroup(0, device.createBindGroup({ layout: p.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: bh } }, { binding: 1, resource: { buffer: ro } }] }));
+    c.dispatchWorkgroups(NT / 8, NT / 8 / CH); c.end(); Q.submit([e.finish()]);
+    await Q.onSubmittedWorkDone(); ro.destroy();
+  }
+  const e = device.createCommandEncoder();
   e.copyBufferToBuffer(bh, 0, br, 0, size);
   e.copyBufferToTexture({ buffer: bh, bytesPerRow: NT * 4 }, { texture: tH }, [NT, NT]);
-  e.copyBufferToTexture({ buffer: bh, bytesPerRow: NT * 4 }, { texture: tM }, [NT, NT]);
-  // height mips, then the bake (sun, sky, normals) from them
+  // height mips; the max chain (for the shadow march) starts at mip 1, read straight from the heights
   const mm = mod(W_MIP);
-  for (const [t, mx] of [[tH, 0], [tM, 1]]) {
+  const mip = (mx, src, dst, n) => {
     const pm = device.createComputePipeline({ layout: 'auto', compute: { module: mm, entryPoint: 'main', constants: { MX: mx } } });
-    for (let m = 1; m < NMIP; m++) {
-      const cm = e.beginComputePass(); cm.setPipeline(pm);
-      cm.setBindGroup(0, device.createBindGroup({ layout: pm.getBindGroupLayout(0), entries: [{ binding: 0, resource: t.createView({ baseMipLevel: m - 1, mipLevelCount: 1 }) }, { binding: 1, resource: t.createView({ baseMipLevel: m, mipLevelCount: 1 }) }] }));
-      cm.dispatchWorkgroups(max(1, (NT >> m) / 8), max(1, (NT >> m) / 8)); cm.end();
-    }
-  }
-  const pb = device.createComputePipeline({ layout: 'auto', compute: { module: mod(W_BAKE), entryPoint: 'main' } });
-  const cb = e.beginComputePass(); cb.setPipeline(pb);
-  cb.setBindGroup(0, device.createBindGroup({ layout: pb.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView() }, { binding: 1, resource: tB.createView() }, { binding: 2, resource: { buffer: sunU } }, { binding: 3, resource: tM.createView() }] }));
-  cb.dispatchWorkgroups(NT / 8, NT / 8); cb.end();
+    const cm = e.beginComputePass(); cm.setPipeline(pm);
+    cm.setBindGroup(0, device.createBindGroup({ layout: pm.getBindGroupLayout(0), entries: [{ binding: 0, resource: src }, { binding: 1, resource: dst }] }));
+    cm.dispatchWorkgroups(max(1, n / 8), max(1, n / 8)); cm.end();
+  };
+  const lv = (t, m) => t.createView({ baseMipLevel: m, mipLevelCount: 1 });
+  for (let m = 1; m < NMIP; m++) mip(0, lv(tH, m - 1), lv(tH, m), NT >> m);
+  for (let m = 1; m < NMIP; m++) mip(1, m === 1 ? lv(tH, 0) : lv(tM, m - 2), lv(tM, m - 1), NT >> m);
   Q.submit([e.finish()]);
+  // then the bake (sun, sky) and the normals from them
+  const e2 = device.createCommandEncoder();
+  const pb = device.createComputePipeline({ layout: 'auto', compute: { module: mod(W_BAKE), entryPoint: 'main' } });
+  const cb = e2.beginComputePass(); cb.setPipeline(pb);
+  cb.setBindGroup(0, device.createBindGroup({ layout: pb.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView() }, { binding: 1, resource: tB.createView() }, { binding: 2, resource: { buffer: sunU } }, { binding: 3, resource: tM.createView() }] }));
+  cb.dispatchWorkgroups(NT / 16, NT / 16); cb.end();
+  const mn = mod(W_NORM), pn = device.createRenderPipeline({ layout: 'auto', vertex: { module: mn, entryPoint: 'vs' }, fragment: { module: mn, entryPoint: 'fs', targets: [{ format: 'rg8unorm' }] } });
+  const rn = e2.beginRenderPass({ colorAttachments: [{ view: tN.createView(), loadOp: 'clear', storeOp: 'store', clearValue: [0.5, 0.5, 0, 0] }] });
+  rn.setPipeline(pn); rn.setBindGroup(0, device.createBindGroup({ layout: pn.getBindGroupLayout(0), entries: [{ binding: 0, resource: tH.createView({ baseMipLevel: 0, mipLevelCount: 1 }) }] })); rn.draw(3); rn.end();
+  Q.submit([e2.finish()]);
   await br.mapAsync(GPUMapMode.READ);
   H = new Float32Array(br.getMappedRange().slice(0));
   br.unmap(); br.destroy(); bh.destroy();
@@ -83,24 +97,28 @@ const hAt = (x, z) => {
 };
 
 await say('Planting pinyon and juniper…', 0.6, 900);
-const TR = plantTrees(H), THERM = makeThermals(hAt), NTH = THERM.length / 8;
+const [TR, TP] = plantTrees(H), THERM = makeThermals(hAt), NTH = THERM.length / 8;
+const BR = buildBridge(hAt);
 // three birds per thermal: the instance buffer repeats each thermal with the bird index in the last slot
 const thermBirds = new Float32Array(NTH * 24); for (let i = 0; i < NTH * 3; i++) { thermBirds.set(THERM.subarray((i / 3 | 0) * 8, (i / 3 | 0) * 8 + 8), i * 8); thermBirds[i * 8 + 7] = i % 3; }
-const meshes = [meshEagle(), meshTree(false), meshTree(true)];
+const meshes = [meshEagle(), meshTree(false), meshTree(true), meshPine(false), meshPine(true), BR.mesh, buildFall()];
 let nV = 0, nI = 0;
 for (const m of meshes) { m.v0 = nV; m.i0 = nI; nV += m.nv; nI += m.ib.length; }
 const allV = new Uint8Array(nV * 20), allI = new Uint32Array(nI);
 for (const m of meshes) { allV.set(new Uint8Array(m.vb), m.v0 * 20); allI.set(m.ib, m.i0); }
-const vbMesh = buf(allV, BU.VERTEX), ibMesh = buf(allI, BU.INDEX), ibTree = buf(TR.data, BU.VERTEX | BU.STORAGE), ibBirds = buf(thermBirds, BU.VERTEX);
-const [EAGLE, TREE, TREELO] = meshes;
+const vbMesh = buf(allV, BU.VERTEX), ibMesh = buf(allI, BU.INDEX), ibBirds = buf(thermBirds, BU.VERTEX);
+TR.ib = buf(TR.data, BU.VERTEX | BU.STORAGE); TP.ib = buf(TP.data, BU.VERTEX | BU.STORAGE);
+const [EAGLE, TREE, TREELO, PINE, PINELO, BRIDGE, FALL] = meshes;
+TR.hi = TREE; TR.lo = TREELO; TR.far = 170; TP.hi = PINE; TP.lo = PINELO; TP.far = 260;
 { // tree shadows baked into tT
   const m = mod(W_TSH);
   const p = device.createRenderPipeline({ layout: 'auto', vertex: { module: m, entryPoint: 'vs' }, primitive: { topology: 'triangle-strip' },
     fragment: { module: m, entryPoint: 'fs', targets: [{ format: 'r8unorm', blend: { color: { operation: 'min', srcFactor: 'one', dstFactor: 'one' }, alpha: { operation: 'min', srcFactor: 'one', dstFactor: 'one' } } }] } });
   const e = device.createCommandEncoder();
   const r = e.beginRenderPass({ colorAttachments: [{ view: tT.createView(), loadOp: 'clear', storeOp: 'store', clearValue: [1, 1, 1, 1] }] });
-  r.setPipeline(p); r.setBindGroup(0, device.createBindGroup({ layout: p.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ibTree } }, { binding: 1, resource: { buffer: sunU } }] }));
-  if (TR.n) r.draw(4, TR.n * 9); r.end(); Q.submit([e.finish()]);
+  r.setPipeline(p);
+  for (const T of [TR, TP]) if (T.n) { r.setBindGroup(0, device.createBindGroup({ layout: p.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: T.ib } }, { binding: 1, resource: { buffer: sunU } }] })); r.draw(4, T.n * 9); }
+  r.end(); Q.submit([e.finish()]);
 }
 
 // ---------------------------------------------------------------- pipelines
@@ -109,9 +127,9 @@ const VF = SS.VERTEX | SS.FRAGMENT;
 const bgl0 = device.createBindGroupLayout({ entries: [
   { binding: 0, visibility: VF, buffer: {} }, { binding: 1, visibility: VF, sampler: {} },
   { binding: 2, visibility: VF, texture: { sampleType: 'unfilterable-float' } },
-  { binding: 3, visibility: VF, texture: {} }, { binding: 4, visibility: VF, texture: {} }] });
+  { binding: 3, visibility: VF, texture: {} }, { binding: 4, visibility: VF, texture: {} }, { binding: 5, visibility: VF, texture: {} }] });
 const bg0 = device.createBindGroup({ layout: bgl0, entries: [{ binding: 0, resource: { buffer: ubo } }, { binding: 1, resource: sRep },
-  { binding: 2, resource: tH.createView() }, { binding: 3, resource: tB.createView() }, { binding: 4, resource: tT.createView() }] });
+  { binding: 2, resource: tH.createView() }, { binding: 3, resource: tB.createView() }, { binding: 4, resource: tT.createView() }, { binding: 5, resource: tN.createView() }] });
 const pl0 = device.createPipelineLayout({ bindGroupLayouts: [bgl0] });
 const A = (shaderLocation, offset, format) => ({ shaderLocation, offset, format });
 const vbM = { arrayStride: 20, attributes: [A(0, 0, 'float32x3'), A(1, 12, 'snorm8x4'), A(2, 16, 'unorm8x4')] };
@@ -120,13 +138,14 @@ const scenePipe = (m, buffers, o = {}) => device.createRenderPipeline({ layout: 
   vertex: { module: m, entryPoint: o.vs || 'vs', buffers, constants: o.constants },
   fragment: { module: m, entryPoint: 'fs', targets: [{ format: HDR }] },
   primitive: { topology: o.strip ? 'triangle-strip' : 'triangle-list', cullMode: o.cull || 'none' },
-  depthStencil: { format: ZFMT, depthWriteEnabled: !o.sky, depthCompare: o.sky ? 'equal' : 'greater' }, multisample: { count: AA } });
+  depthStencil: { format: ZFMT, depthWriteEnabled: !o.sky, depthCompare: o.sky ? 'equal' : 'greater' }, multisample: { count: AA, alphaToCoverageEnabled: !!o.a2c && AA > 1 } });
 const TN = 160; // cells per side of each terrain level
 const pTerrain = scenePipe(mod(W_TERRAIN), [], { constants: { N: TN } });
 const pRiver = scenePipe(mod(W_RIVER), [], { strip: true });
 const pTree = scenePipe(mod(W_TREE), [vbM, ibT]);
 const mEagle = mod(W_EAGLE), pEagle = scenePipe(mEagle, [vbM]), pBirds = scenePipe(mEagle, [vbM, ibT], { vs: 'vsB' });
 const pSky = scenePipe(mod(W_SKY), [], { sky: true });
+const pRock = scenePipe(mod(W_ROCKM), [vbM]), pFall = scenePipe(mod(W_FALL), [vbM], { a2c: true });
 const bglBlit = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: SS.FRAGMENT, texture: {} }, { binding: 1, visibility: SS.FRAGMENT, sampler: {} }] });
 const plBlit = device.createPipelineLayout({ bindGroupLayouts: [bglBlit] });
 const mBlit = mod(W_BLIT);
@@ -209,7 +228,8 @@ function aimCam(ex, ey, ez, tx, ty, tz, rl) {
   F[CX] = ex; F[CY] = ey; F[CZ] = ez;
 }
 const submitList = [null];
-function drawTrees(r) {
+function drawTrees(r, T) {
+  r.setVertexBuffer(1, T.ib);
   const cx = F[CX], cz = F[CZ], R = UB[25], fx = cam.f[0], fz = cam.f[2], fh = hypot(fx, fz), back = cam.f[1] > -0.75 && fh > 0.3;
   for (let j = 0; j < CELLS; j++) {
     let run = -1, runLo = false;
@@ -217,14 +237,14 @@ function drawTrees(r) {
       let v = false, lo = false;
       if (i < CELLS) {
         const c = i + j * CELLS;
-        if (TR.start[c + 1] > TR.start[c]) {
+        if (T.start[c + 1] > T.start[c]) {
           let dx = (i + 0.5) * CELLW - cx, dz = (j + 0.5) * CELLW - cz; dx -= L * round(dx / L); dz -= L * round(dz / L);
           const nx = max(abs(dx) - CELLW / 2, 0), nz = max(abs(dz) - CELLW / 2, 0), d2 = nx * nx + nz * nz;
-          if (d2 < R * R && (!back || (dx * fx + dz * fz) / fh > -CELLW * 0.75)) { v = true; lo = d2 > 170 * 170; }
+          if (d2 < R * R && (!back || (dx * fx + dz * fz) / fh > -CELLW * 0.75)) { v = true; lo = d2 > T.far * T.far; }
         }
       }
       if (run >= 0 && (!v || lo !== runLo)) {
-        const c0 = run + j * CELLS, c1 = i + j * CELLS, a = TR.start[c0], n = TR.start[c1] - a, m = runLo ? TREELO : TREE;
+        const c0 = run + j * CELLS, c1 = i + j * CELLS, a = T.start[c0], n = T.start[c1] - a, m = runLo ? T.lo : T.hi;
         if (n > 0) r.drawIndexed(m.ib.length, n, m.i0, m.v0, a);
         run = -1;
       }
@@ -266,7 +286,9 @@ function render() {
   r.setPipeline(pBirds); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibBirds); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(EAGLE.ib.length, NTH * 3, EAGLE.i0, EAGLE.v0, 0);
   r.setPipeline(pTerrain);
   for (let k = 0; k < nLv; k++) r.draw(TN * TN * 6, 1, 0, k);
-  r.setPipeline(pTree); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibTree); r.setIndexBuffer(ibMesh, 'uint32'); drawTrees(r);
+  r.setPipeline(pTree); r.setVertexBuffer(0, vbMesh); r.setIndexBuffer(ibMesh, 'uint32'); drawTrees(r, TR); drawTrees(r, TP);
+  r.setPipeline(pRock); r.drawIndexed(BRIDGE.ib.length, 1, BRIDGE.i0, BRIDGE.v0, 0);
+  r.setPipeline(pFall); r.drawIndexed(FALL.ib.length, 1, FALL.i0, FALL.v0, 0);
   r.setPipeline(pRiver); r.draw(4);
   r.setPipeline(pSky); r.draw(3);
   r.end();
@@ -309,9 +331,9 @@ function fly(dt) {
   let gt = GLIDE + pitch * 0.55 + (flap ? 0.22 : 0) - abs(F[BANK]) * 0.06;
   if (kdive) gt = -0.95 + pitch * 0.3;
   if (v < 10) gt = min(gt, -0.3 * (10 - v) / 4);
-  if (F[EY] > YTOP + 380) gt = min(gt, -0.15);
+  if (F[EY] > YTOP + RIM + 400) gt = min(gt, -0.15);
   F[GAM] += (gt - F[GAM]) * (1 - exp(-dt * 2.2));
-  const thin = 1 - sstep(YTOP + 200, YTOP + 380, F[EY]);
+  const thin = 1 - sstep(YTOP + RIM + 220, YTOP + RIM + 400, F[EY]);
   const thrust = flap ? 7.5 * clamp(1 - v / 30, 0, 1) * thin : 0;
   const kd = mix(0.0024, 0.0009, F[FOLD]) * (1 + 0.3 * abs(F[BANK])) * (1 + kflare * 2.5);
   F[SPD] = clamp(v + (-G0 * sin(F[GAM]) - kd * v * v + thrust) * dt, 6, 78);
@@ -339,6 +361,18 @@ function fly(dt) {
     const vn = vx * nx + vy * ny + vz * nz;
     if (vn < 0) { vx -= nx * vn * 1.25; vy -= ny * vn * 1.25; vz -= nz * vn * 1.25; hit = max(hit, -vn); }
   }
+  // the stone bridge: an elliptical slab at each span sample; push out of it
+  { const ox = wrapd(F[EX] - BR.cx), oz = wrapd(F[EZ] - BR.cz), s = ox * BR.nx + oz * BR.nz;
+    if (s > BR.a && s < BR.b) {
+      const i = round((s - BR.a) / (BR.b - BR.a) * BR.NS) * 5, c = BR.col, ac = ox * BR.tx + oz * BR.tz, dy = F[EY] - c[i + 1];
+      const ey = dy / (c[i + 3] + ER), ea = ac / (c[i + 4] + ER), q = ey * ey + ea * ea;
+      if (q < 1) {
+        const k = 1 / sqrt(max(q, 1e-4)) - 1, py = dy * k, pa = ac * k, pl = hypot(py, pa) || 1;
+        F[EY] += py; F[EX] += BR.tx * pa; F[EZ] += BR.tz * pa;
+        const ny = py / pl, na = pa / pl, vn = vy * ny + (vx * BR.tx + vz * BR.tz) * na;
+        if (vn < 0) { vy -= ny * vn * 1.25; vx -= BR.tx * na * vn * 1.25; vz -= BR.tz * na * vn * 1.25; hit = max(hit, -vn); }
+      }
+    } }
   if (F[EY] < YR + 0.9) { F[EY] = YR + 0.9; if (vy < 0) { hit = max(hit, -vy); vy = -vy * 0.3; } }
   if (hit > 0) {
     const sl = hit > 3 ? 0.72 : 0.97, nsp = hypot(vx, vy, vz) * sl;
@@ -363,6 +397,8 @@ function chase(dt) {
     const t = i / 8, px = mix(F[EX], ex, t), py = mix(F[EY], ey, t), pz = mix(F[EZ], ez, t);
     if (py < hAt(px, pz) + 1.6) { const t2 = max(0.15, (i - 1) / 8); ex = mix(F[EX], ex, t2); ey = mix(F[EY], ey, t2) + 1; ez = mix(F[EZ], ez, t2); break; }
   }
+  // a camera that has swung into a wall (in the narrows, after a turn) slides back toward the eagle, never up over the rim
+  for (let i = 0; i < 8 && hAt(ex, ez) + 1.6 > ey; i++) { ex = mix(ex, F[EX], 0.4); ey = mix(ey, F[EY], 0.4); ez = mix(ez, F[EZ], 0.4); }
   ey = max(ey, hAt(ex, ez) + 1.6, YR + 1.2);
   const sh = F[SHAKE] * 0.35, t = F[TIME];
   ex += sh * sin(t * 53); ey += sh * sin(t * 61 + 1); ez += sh * sin(t * 47 + 2);
@@ -381,16 +417,16 @@ function eagleUniforms() {
 
 // ---------------------------------------------------------------- scripted flight (menu backdrop, benchmark)
 // the river's frame: point at z along the river, offset o to one side, height y
-const riverPt = (z, o, y) => { const d = riverDX(z), n = hypot(1, d); return [riverX(z) + o / n, y, z - o * d / n]; };
+const riverPt = (z, o, y, r = 0) => { const d = rDX(r, z), n = hypot(1, d); return [rX(r, z) + o / n, y, z - o * d / n]; };
 // distance from the river to the wall on one side at height y (to the rim edge when y is above the rim)
-const wallDist = (z, y, side) => { const yy = min(y, YTOP - 4); for (let o = 4; o < 1500; o += 4) { const p = riverPt(z, side * o, 0); if (hAt(p[0], p[2]) > yy) return o; } return 1500; };
+const wallDist = (z, y, side, r = 0) => { for (let o = 4; o < 2000; o += 4) { const p = riverPt(z, side * o, 0, r); if (hAt(p[0], p[2]) > y || hAt(p[0], p[2]) > YTOP + rimRise(p[0], p[2]) - 4) return o; } return 2000; };
 function viewPose(v) {
-  const [z, sd, h, fr, la, lf, lh] = v;
-  const c = riverPt(z, sd * fr * wallDist(z, YR + h, sd), YR + h), t = riverPt(z + la, sd * lf * wallDist(z + la, YR + lh, lf < 0 ? -sd : sd), YR + lh);
+  const [z, sd, h, fr, la, lf, lh, r = 0] = v;
+  const c = riverPt(z, sd * fr * wallDist(z, YR + h, sd, r), YR + h, r), t = riverPt(z + la, sd * lf * wallDist(z + la, YR + lh, lf < 0 ? -sd : sd, r), YR + lh, r);
   return [c[0], max(c[1], hAt(c[0], c[2]) + 6), c[2], t[0], t[1], t[2]];
 }
 // benchmark path: follows the river, weaving between the walls, raised wherever the spline would touch rock
-const FLY = FLYH.map((h, i) => { const sd = sin(i * 0.8) < 0 ? -1 : 1; return riverPt(i * 180, sd * (0.15 + 0.35 * abs(sin(i * 0.8))) * wallDist(i * 180, YR + h, sd), YR + h); });
+const FLY = FLYH.map((h, i) => { const z = FLYZ0 + i * 180, sd = sin(i * 0.8) < 0 ? -1 : 1; return riverPt(z, sd * (0.15 + 0.35 * abs(sin(i * 0.8))) * min(wallDist(z, YR + h, sd), 300), YR + h); });
 const FLYN = FLY.length, FLYT = 60, LUTN = 1024, flyLUT = new Float32Array(LUTN + 1), P3 = new Float64Array(3);
 function flyRaw(s) {
   let i = floor(s) | 0; if (i > FLYN - 2) i = FLYN - 2;
@@ -473,7 +509,7 @@ const key = (e, v) => {
       else if (e.code === 'Escape') ui(true);
       else if (e.code === 'BracketLeft') setFog(FOG - 50);
       else if (e.code === 'BracketRight') setFog(FOG + 50);
-      else if (e.code >= 'Digit1' && e.code <= 'Digit6') { const p = viewPose(VIEWS[e.code.charCodeAt(5) - 49]); placeEagle(p[0], p[1], p[2], atan2(p[3] - p[0], p[5] - p[2]), 18); }
+      else if (e.code >= 'Digit1' && e.code <= 'Digit' + VIEWS.length) { const p = viewPose(VIEWS[e.code.charCodeAt(5) - 49]); placeEagle(p[0], p[1], p[2], atan2(p[3] - p[0], p[5] - p[2]), 18); }
     }
   }
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
