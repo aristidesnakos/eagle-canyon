@@ -1,5 +1,7 @@
 # Results: first run of the bird game spike (16 Nov 2026)
 
+The code (all three runs) is on GitHub: https://github.com/aristidesnakos/eagle-canyon
+
 Predictions P0–P4 and the kill line are from `docs/studio/BIRD_GAME_SPIKE.md` in the Chimneys repo, written 15 Nov
 2026 before anything was built. Raw log: `results/bench-2026-11-16.txt`.
 
