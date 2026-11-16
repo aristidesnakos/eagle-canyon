@@ -168,11 +168,12 @@ const pPost = device.createRenderPipeline({ layout: 'auto', vertex: { module: mP
 // The scene is drawn at `pix` pixels and scaled to the window; frame() tunes `pix` for 60 fps (Abyssal Garden's
 // scheme, without its draw-distance step: here the draw distance is the fog, a design value, not a quality knob).
 const PIXMAX = 2560 * 1440, PIXMIN = mob ? 25e4 : 5e5;
+let FW = 0, FH = 0; // dev: a forced drawing size (EC.settle)
 let W = 0, Hh = 0, DW = 0, DH = 0, pix = +SV[1] || (LV > 1 ? 41e4 : mob ? 1280 * 720 : PIXMAX), dynN = 0, dynT = 0, dynG = 0, dynGN = 0, dynBad = 0, dynOk = 0, dynWait = 3;
 let passScene, passPost, bgPost, bloomPass = [], bloomBG = [], targets = [];
 const NB = 5;
 function resize() {
-  DW = max(2, round(canvas.clientWidth * devicePixelRatio)); DH = max(2, round(canvas.clientHeight * devicePixelRatio));
+  DW = FW || max(2, round(canvas.clientWidth * devicePixelRatio)); DH = FH || max(2, round(canvas.clientHeight * devicePixelRatio));
   const s = min(1, sqrt(pix / (DW * DH)));
   const w = max(2, round(DW * s) & ~1), h = max(2, round(DH * s) & ~1);
   if (w === W && h === Hh) return;
@@ -224,7 +225,7 @@ if (hasTS) {
 const NEAR = 0.15;
 let HZ = 0;
 const cam = { f: [0, 0, 1], r: [1, 0, 0], u: [0, 1, 0], tanY: 0.6 };
-let eagleOn = true, DBG = 0;
+let eagleOn = true, DBG = 0; const SKIP = {};
 // aims the camera from eye E at target T with roll angle rl
 function aimCam(ex, ey, ez, tx, ty, tz, rl) {
   let fx = tx - ex, fy = ty - ey, fz = tz - ez; const fl = hypot(fx, fy, fz) || 1; fx /= fl; fy /= fl; fz /= fl;
@@ -297,8 +298,8 @@ function render() {
   if (eagleOn) { r.setPipeline(pEagle); r.setVertexBuffer(0, vbMesh); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(EAGLE.ib.length, 1, EAGLE.i0, EAGLE.v0, 0); }
   r.setPipeline(pBirds); r.setVertexBuffer(0, vbMesh); r.setVertexBuffer(1, ibBirds); r.setIndexBuffer(ibMesh, 'uint32'); r.drawIndexed(EAGLE.ib.length, NTH * 3, EAGLE.i0, EAGLE.v0, 0);
   r.setPipeline(pTerrain);
-  for (let k = 0; k < nLv; k++) r.draw(TN * TN * 6, 1, 0, k);
-  r.setPipeline(pTree); r.setVertexBuffer(0, vbMesh); r.setIndexBuffer(ibMesh, 'uint32'); drawTrees(r, TR); drawTrees(r, TP);
+  if (!SKIP.terrain) for (let k = SKIP.lv0 || 0; k < nLv; k++) r.draw(TN * TN * 6, 1, 0, k);
+  r.setPipeline(pTree); r.setVertexBuffer(0, vbMesh); r.setIndexBuffer(ibMesh, 'uint32'); if (!SKIP.trees) { drawTrees(r, TR); drawTrees(r, TP); }
   r.setPipeline(pRock); r.drawIndexed(BRIDGE.ib.length, 1, BRIDGE.i0, BRIDGE.v0, 0);
   r.setPipeline(pFall); r.drawIndexed(FALL.ib.length, 1, FALL.i0, FALL.v0, 0);
   r.setPipeline(pRiver); r.draw(4);

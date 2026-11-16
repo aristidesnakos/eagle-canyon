@@ -70,6 +70,14 @@
       x2.fillStyle = '#f00'; x2.font = '16px sans-serif'; VIEWS.forEach((v, i) => { const p = viewPose(v); x2.fillRect(p[0] * s - 4, p[2] * s - 4, 8, 8); x2.fillText(i + 1, p[0] * s + 6, p[2] * s); x2.fillRect(p[3] * s - 2, p[5] * s - 2, 4, 4); });
       return c.toDataURL('image/png');
     },
+    // average GPU time over n frames at the current view
+    gpu(n = 90) { return new Promise((r) => { let k = 0, s = 0, c = 0; const f = () => { if (k++ > 20 && F[GPU] > 0) { s += F[GPU]; c++; } if (c >= n) r(+(s / c).toFixed(2)); else requestAnimationFrame(f); }; f(); }); },
+    // the resolution the automatic scaler settles at for a w x h screen, over `secs` of the scripted flight (twice round
+    // if secs > 60); returns the share of the screen's pixels drawn, averaged over the last half
+    settle(w, h, secs = 60) { this.hideMenu(); FW = w; FH = h; dynHold = false; pix = PIXMAX; dynT = -300; resize(); mode = 1; F[FLT] = 0; const t0 = performance.now(), sm = []; let nf = 0, late = 0, lt = 0;
+      return new Promise((r) => { const f = () => { const t = (performance.now() - t0) / 1000; if (t > secs / 2) { sm.push(W * Hh / (DW * DH)); nf++; if (F[LAST] - lt > 25) late++; } lt = F[LAST]; if (t > secs) { sm.sort((a, b) => a - b); let s = 0; for (const v of sm) s += v; r({ screen: `${DW}x${DH}`, share: +(s / sm.length).toFixed(3), min: +sm[0].toFixed(3), last: `${W}x${Hh}`, gpu: +F[GPU].toFixed(2), fps: +(nf / (secs / 2)).toFixed(1), late }); FW = FH = 0; dynHold = true; pix = 1e9; resize(); } else requestAnimationFrame(f); }; f(); }); },
+    force(w, h) { FW = w; FH = h; dynHold = true; pix = 1e9; resize(); return `${W}x${Hh}`; },
+    draws(o) { Object.assign(SKIP, o); },
     stats() { return { W, H: Hh, DW, DH, gpu: F[GPU], trees: TR.n, pines: TP.n, fog: FOG, eagle: [F[EX], F[EY], F[EZ]] }; },
   };
 }

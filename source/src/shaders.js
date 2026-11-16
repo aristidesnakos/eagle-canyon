@@ -554,6 +554,8 @@ fn hv(k: i32, p: vec2f, mo: f32) -> f32 { return mix(hl(k, p), hl(k + 1, p), mo)
 }
 @fragment fn fs(i: VO) -> @location(0) vec4f {
   let p = i.wp; let b = bake(p);
+  if (g.fogp.w > 3.5 && g.fogp.w < 4.5) { return vec4f(.3, .25, .2, 1.); }
+  if (g.fogp.w > 5.5) { return fin(atm(vec3f(.3, .25, .2), p)); }
   let nt = textureSampleLevel(tN, sR, p.xz / WL, 0.).rg * 2. - 1.;
   let n = vec3f(nt.x, sqrt(max(1. - dot(nt, nt), 0.)), nt.y);
   // On the coarser levels the mesh height between vertices is a straight blend, which would cut the colour bands
@@ -575,6 +577,7 @@ fn hv(k: i32, p: vec2f, mo: f32) -> f32 { return mix(hl(k, p), hl(k + 1, p), mo)
       c = mix(c, mix(body, sky(vec3f(R.x, abs(R.y), R.z)) * mix(.55, 1., b.g) * vec3f(.75, .9, .8), fr * .7), wet);
     }
   }
+  if (g.fogp.w > 4.5) { return fin(c); }
   if (g.fogp.w > 2.5) { return vec4f(rock(p, n, 1., b, vec4f(0.)) * 2., 1.); }
   if (g.fogp.w > 1.5) { return vec4f(vec3f(sunVis(p, b), sat(dot(n, g.sun.xyz)), b.g), 1.); }
   if (g.fogp.w > .5) { return vec4f(vec3f(f32(i.lv == 0.), f32(i.lv == 1.), f32(i.lv == 2.)) * (.3 + .7 * sat(dot(n, g.sun.xyz))) + f32(i.lv == 3.) * .5, 1.); }

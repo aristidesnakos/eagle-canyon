@@ -97,7 +97,7 @@ Chrome's GPU process uses 346 MB (peak 488 MB).
 
 | # | Prediction | Measured | Result |
 |---|---|---|---|
-| R1 | Ari, after 5 minutes: "keep flying" 4/5 or more | Waiting for Ari: the question is on his page, saved to `answers/eagle-2` | Open |
+| R1 | Ari, after 5 minutes: "keep flying" 4/5 or more | **4 of 5**, no note (Ari, 16 Nov 2026, page db `answers/eagle-2`; run 1 was 3) | **Pass** |
 | R2 | Full 1080p, Medium, haze 600 m, fly-through through the new places: ≥ 60 fps average, GPU ≤ 12 ms average, no frame over 25 ms | 59.9 fps; GPU 10.81 ms average (p99 17.29, max 19.77); frame max 19.5 ms, 0 frames over 25 ms | **Pass** |
 | R3 | `index.html` ≤ 300 KB (expected about 80 KB) | 72.1 KB (28.8 KB gzipped) | **Pass** |
 | R4 | The 8 km world costs at most 2.5 times the memory: test Chrome GPU process ≤ 850 MB, menu ≤ 5 s after load | GPU process 519 MB (peak 648 MB) in a fresh test Chrome, 1.5 times the baseline; menu 2.2 s after load (3 reloads: 2.32, 2.17, 2.24 s) | **Pass** |
@@ -193,3 +193,43 @@ mottle, rim steps, the eagle's wingtips edge-on.
 **Not met:** the gate was "nothing above minor". It reached moderate (from major) and stopped there. The open items
 above are the next run's first job. The critics' severities also drifted between rounds (the same river was moderate
 in round 3 and major in round 4), so one more round would not have proven much without the changes.
+
+---
+
+# Run 3: much more resolution (16 Nov 2026)
+
+Ari, after rating run 2 at 4 of 5: "It's looking good but I would like for it to be like much more resolution and for
+you to exercise your judgment for how this should be best developed."
+
+## Predictions (written before building)
+
+**Where the softness comes from** (measured on the run 2 build before changing anything):
+
+- **Blurry surfaces.** All rock detail is smooth noise worked out per pixel. Nothing in it is finer than about half a
+  metre, and nothing has a hard edge. On the eight close-up stills the fine-detail score is 0.78, and about 0.5 of
+  that is the dither added against sky banding.
+- **Soft shadow edges.** The sun's shadow is stored every 4 m and its edge is spread over about 9 m of ground.
+- **Not the pixel count.** On this Mac's own screen (2560×1600) the run 2 build already holds 60 fps at every pixel
+  in the fly-through (GPU 12.7 ms average, p99 15.2). But the game caps itself at 90% of this screen, and its automatic
+  scaler ended two test flights at 66% and 90%. So part of the softness is an upscaled picture.
+- **Cost.** About two thirds of each frame is that per-pixel rock noise (terrain drawn flat: 3 to 4 ms; shaded: 10 to
+  14 ms). So it's also the place to win time back.
+
+**Hypothesis.** Replacing the per-pixel noise with small detail textures made once at load will make the rock both
+sharper and cheaper. The textures hold bedding ledges, joints and grain, are mapped onto cliffs by world position so
+strata stay horizontal, and are filtered by the GPU. Together with sun shadows stored at full resolution with a
+narrow edge, this will read as "much more resolution" at flying distance and up close, on the same heights. The
+time won back goes to drawing every pixel of the screen.
+
+"Fine-detail score" = mean absolute difference between a still and its own 2-pixel blur (luma, 0 to 255), from
+`tools/sharp.sh`. It rewards noise as well as detail, so the critic has to confirm the detail reads as rock.
+
+| # | Prediction | Measured | Result |
+|---|---|---|---|
+| S1 | Full 1080p, Medium, haze 600 m, fly-through: ≥ 60 fps, GPU ≤ 12 ms average and p99 ≤ 16.7 ms, no frame over 25 ms. And no slower than the run 2 build timed in the same session (today, before building: 8.8 ms average, p99 14.4; run 2's own log said 10.8 and 17.3, so sessions differ by 2 ms) | | |
+| S2 | This Mac's own screen, 2560×1600, every pixel: ≥ 60 fps, GPU ≤ 12.7 ms average (run 2 build today: 12.7, p99 15.2), and the automatic scaler ends the flight at 100% of the screen (run 2 build: 66% and 90% in two flights) | | |
+| S3 | Fine-detail score, mean of the 8 close-up stills: ≥ 2.0 (run 2 build: 0.78). Mean of the 8 viewpoints: ≥ 1.3 (run 2 build: 0.85) | | |
+| S4 | Blind pairs: a critic shown 8 close-up pairs (run 2 and run 3, sides shuffled, no labels) picks run 3 as the sharper, more detailed one in ≥ 7 of 8 | | |
+| S5 | `index.html` ≤ 300 KB (expected about 90 KB) | | |
+| S6 | Test Chrome GPU process ≤ 850 MB (run 2: 519 MB); menu ≤ 5 s after load (run 2: 2.2 s) | | |
+| S7 | Visual critic, final round: the gate is again "nothing above minor". My honest expectation: it stops at moderate a third time, with 4 or fewer moderate items (run 2 ended with 10) | | |
