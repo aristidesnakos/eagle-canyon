@@ -54,5 +54,5 @@ Node 18+. In `source/`: `npm install` (esbuild only), then `npm run build` for `
 
 `tools/cdp.mjs` drives a separate throw-away Chrome (own profile) over the DevTools protocol; `tools/views.sh FOG DIR`
 renders the eight viewpoints, `tools/close.sh DIR` eight close-ups (`tools/sharp.sh DIR` scores their fine detail),
-`tools/bench3.sh` times run 2 against run 3, `tools/clip.sh START SECONDS FOG DIR` a 30 fps clip, and in the page
+`tools/bench3.sh` times run 2 against run 3, `tools/record.mjs` and `tools/flight.mjs` record a scripted or a designed flight frame by frame into a video, `tools/clip.sh START SECONDS FOG DIR` a 30 fps clip, and in the page
 `EC.bench(400)` runs the 60 s fly-through at full resolution and returns frame and GPU times. Results: `RESULTS.md`.

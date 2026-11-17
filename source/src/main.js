@@ -467,23 +467,32 @@ function viewPose(v) {
   return [c[0], max(c[1], hAt(c[0], c[2]) + 6), c[2], t[0], t[1], t[2]];
 }
 // benchmark path: follows the river, weaving between the walls, raised wherever the spline would touch rock
-const FLY = FLYH.map((h, i) => { const z = FLYZ0 + i * 180, sd = sin(i * 0.8) < 0 ? -1 : 1; return riverPt(z, sd * (0.15 + 0.35 * abs(sin(i * 0.8))) * min(wallDist(z, YR + h, sd), 300), YR + h); });
-const FLYN = FLY.length, FLYT = 60, LUTN = 1024, flyLUT = new Float32Array(LUTN + 1), P3 = new Float64Array(3);
+// (setPath rebuilds it from another start and other heights: the dev page records its video flights that way)
+let FLY, FLYN; const FLYT = 60, LUTN = 1024, flyLUT = new Float32Array(LUTN + 1), P3 = new Float64Array(3);
 function flyRaw(s) {
   let i = floor(s) | 0; if (i > FLYN - 2) i = FLYN - 2;
   const u = s - i, a = FLY[max(i - 1, 0)], b = FLY[i], c = FLY[i + 1], d = FLY[min(i + 2, FLYN - 1)];
   for (let o = 0; o < 3; o++) P3[o] = 0.5 * (2 * b[o] + (c[o] - a[o]) * u + (2 * a[o] - 5 * b[o] + 4 * c[o] - d[o]) * u * u + (3 * b[o] - a[o] - 3 * c[o] + d[o]) * u * u * u);
 }
-for (let it = 0; it < 12; it++) {
-  let low = 0;
-  for (let k = 0; k <= 2048; k++) { const s = k / 2048 * (FLYN - 1); flyRaw(s); const need = hAt(P3[0], P3[2]) + 14 - P3[1]; if (need > 0) { FLY[round(s)][1] += need + 2; low++; } }
-  if (!low) break;
-}
-{
+let FLYLEN = 1;
+// (clr: how far above the ground the path is kept)
+function finishPath(clr = 14) {
+  FLYN = FLY.length;
+  for (let it = 0; it < 12; it++) {
+    let low = 0;
+    for (let k = 0; k <= 2048; k++) { const s = k / 2048 * (FLYN - 1); flyRaw(s); const need = hAt(P3[0], P3[2]) + clr - P3[1]; if (need > 0) { FLY[round(s)][1] += need + 2; low++; } }
+    if (!low) break;
+  }
   const M = 4096, len = new Float32Array(M + 1); let px = 0, py = 0, pz = 0;
   for (let k = 0; k <= M; k++) { flyRaw(k / M * (FLYN - 1)); if (k) len[k] = len[k - 1] + hypot(P3[0] - px, P3[1] - py, P3[2] - pz); px = P3[0]; py = P3[1]; pz = P3[2]; }
   for (let k = 0, j = 0; k <= LUTN; k++) { const d = k / LUTN * len[M]; while (j < M - 1 && len[j + 1] < d) j++; flyLUT[k] = (j + (d - len[j]) / max(len[j + 1] - len[j], 1e-6)) / M * (FLYN - 1); }
+  FLYLEN = len[M];
 }
+function setPath(z0, hs) {
+  FLY = hs.map((h, i) => { const z = z0 + i * 180, sd = sin(i * 0.8) < 0 ? -1 : 1; return riverPt(z, sd * (0.15 + 0.35 * abs(sin(i * 0.8))) * min(wallDist(z, YR + h, sd), 300), YR + h); });
+  finishPath();
+}
+setPath(FLYZ0, FLYH);
 const flyS = (t) => { let s = clamp(t / FLYT, 0, 1) * LUTN, k = floor(s) | 0; if (k > LUTN - 1) k = LUTN - 1; return flyLUT[k] + (flyLUT[k + 1] - flyLUT[k]) * (s - k); };
 // puts the eagle on the path at time t (looping) and the camera behind it
 function flyAt(t) {
@@ -507,7 +516,7 @@ function viewAt(i) {
 
 // ---------------------------------------------------------------- frame
 let hud = false, hN = 0, hMax = 0, hMin = 1e9, hPer = 1e9, hLate = 0, hTot = 0, mode = 0; // mode 0 play, 1 scripted, 2 still
-let dynHold = false;
+let dynHold = false, clipAt = -1, clipDt = 1 / 30, clipFx = null, clipK = 1;
 function frame(now) {
   requestAnimationFrame(frame);
   const dtr = now - F[LAST]; F[LAST] = now;
@@ -525,7 +534,7 @@ function frame(now) {
   F[TIME] += dt;
   if (mode === 0 && !menu) { fly(dt); chase(dt); }
   else if (mode === 0 || mode === 1) { F[FLT] += dt; flyAt(F[FLT]); chase(dt); }
-  else if (mode === 3) { flyAt(F[FLT]); chase(1 / 30); } // a clip: time is set from outside, one step per frame
+  else if (mode === 3) { if (F[FLT] !== clipAt) { clipAt = F[FLT]; flyAt(clipAt); if (clipFx) clipFx(clipDt); chase(clipDt * clipK); } } // a clip: time is set from outside, one step per recorded frame
   eagleUniforms();
   render();
   if (!menu && mode === 0) wind(F[SPD], F[EY] - YR, kf && !kdive, F[FOLD]);

@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap">
+<style>
+html{zoom:.5}html,body{margin:0;background:#000;overflow:hidden}
+.w{width:1920px;height:1080px;display:flex;gap:4px;background:#000;font-family:Inter,system-ui,sans-serif}
+.h{position:relative;width:958px;height:1080px;overflow:hidden}
+.h img{position:absolute;top:0;height:1080px;width:1920px}
+.t{position:absolute;left:28px;bottom:28px;padding:14px 22px;border-radius:12px;background:rgba(20,12,8,.78);color:#fff;font-size:34px;font-weight:700;line-height:1.2}
+.t small{display:block;font-size:22px;font-weight:500;color:#e9d9c8;margin-top:2px}
+.c{position:absolute;right:28px;top:28px;padding:10px 18px;border-radius:10px;background:rgba(20,12,8,.7);color:#f1e6db;font-size:22px;font-weight:500}
+</style>
+<div class="w"><div class="h"><img id="b"><div class="t">Before · Claude Opus 5.5<small>run 2 build</small></div></div>
+<div class="h"><img id="a"><div class="t">After · Claude Fable 5.2<small>run 3 build</small></div><div class="c" id="cap"></div></div></div>
+<script>const q=new URLSearchParams(location.search);for(const k of['a','b']){const i=document.getElementById(k);i.src=q.get(k);i.style.left=-q.get('x')+'px'}document.getElementById('cap').textContent=q.get('cap')+' · same spot, cut at full size'</script>

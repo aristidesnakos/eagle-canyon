@@ -28,7 +28,15 @@
     if (e.code === 'KeyF') { mode = mode === 1 ? 0 : 1; F[FLT] = 0; }
     if (e.code === 'KeyB') startBench();
   });
-  window.EC = {
+  // a rendered sound buffer as a 16-bit stereo WAV, base64
+  const wavOf = (buf) => {
+    const sr = buf.sampleRate, n = buf.length, L0 = buf.getChannelData(0), R0 = buf.getChannelData(1), dv = new DataView(new ArrayBuffer(44 + n * 4));
+    const w = (o, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, n * 4, true);
+    for (let i = 0; i < n; i++) { dv.setInt16(44 + i * 4, clamp(L0[i], -1, 1) * 32767, true); dv.setInt16(46 + i * 4, clamp(R0[i], -1, 1) * 32767, true); }
+    const u = new Uint8Array(dv.buffer); let bin = ''; for (let i = 0; i < u.length; i += 32768) bin += String.fromCharCode.apply(null, u.subarray(i, i + 32768)); return btoa(bin);
+  };
+  const EC = window.EC = {
     ready: true,
     hideMenu() { menu = false; body.className = 'g p'; },
     fog(m) { FOG = m; },
@@ -52,7 +60,58 @@
     fly(t) { this.hideMenu(); mode = 1; F[FLT] = t; },
     bench(m) { this.hideMenu(); FOG = m; return new Promise((r) => { done = r; startBench(); }); },
     // one clip frame at time t (30 fps steps); resolves after it is on screen
-    clip(t) { this.hideMenu(); if (mode !== 3 || abs(t - F[FLT]) > 0.1) { mode = 3; F[FLT] = t - 1; for (let k = 0; k < 60; k++) { flyAt(F[FLT] += 1 / 60); chase(1 / 60); } } F[FLT] = t; F[TIME] = t; return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); },
+    // one clip frame at time t (steps of dt seconds); resolves after it is on screen
+    // (tm: the clock for water and wings, when the flight itself is played slower than the benchmark's 39 m/s)
+    clip(t, dt = 1 / 30, tm = t) { this.hideMenu(); clipDt = dt; if (mode !== 3 || abs(t - F[FLT]) > 0.1) { mode = 3; F[FLT] = t - 1; for (let k = 0; k < 60; k++) { flyAt(F[FLT] += 1 / 60); chase(1 / 60); } } F[FLT] = t; F[TIME] = tm; return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); },
+    // ---- flights for video: a path through chosen points, flown the way a player would fly it
+    // distance from river A to the wall (or rim edge) on one side at height h above the river
+    wd: (z, h, side) => wallDist(z, YR + h, side),
+    // a path through points [z along river A, metres to the side of it, height above the river]
+    pts(p, clr = 10) { FLY = p.map(([z, o, h]) => riverPt(z, o, YR + h)); finishPath(clr); return [FLYN, round(FLYLEN)]; },
+    // style(true): on a recorded flight the eagle folds its wings in a dive, flaps to climb, banks into turns as a
+    // coordinated turn would, and gains speed going down; the chase camera follows a little tighter (k)
+    style(on, k = 2.2) {
+      const v = { sp: 36, fold: 0, amp: 0.04, bank: 0, ph: 0, yaw: null, flap: false }; EC.v = v; clipK = on ? k : 1;
+      clipFx = !on ? null : (dt) => {
+        const g = F[GAM], e = (r) => 1 - exp(-dt * r);
+        v.sp += (clamp(36 - 42 * sin(g), 20, 62) - v.sp) * e(1.6);
+        v.fold += (sstep(-0.28, -0.55, g) - v.fold) * e(5);
+        v.flap = g > 0.07 && v.fold < 0.2;
+        v.amp += ((v.flap ? 0.62 : 0.035) * (1 - v.fold) - v.amp) * e(6);
+        v.ph += dt * TAU * (v.flap ? 2.6 : 0.35);
+        let w = v.yaw === null ? 0 : ((F[YAW] - v.yaw + 3 * PI) % TAU - PI) / dt; v.yaw = F[YAW];
+        v.bank += (clamp(-Math.atan(v.sp * w / 9.81) * 1.15, -1.15, 1.15) - v.bank) * e(4);
+        F[SPD] = v.sp; F[FOLD] = v.fold; F[AMP] = v.amp; F[PH] = v.ph; F[BANK] = v.bank;
+      };
+    },
+    // one recorded frame: move along the path at the eagle's own speed for dt seconds; tm is the clock for the water
+    step(dt, tm) { const sp = EC.v ? EC.v.sp : 39; clipDt = dt; F[FLT] += dt * sp / (FLYLEN / FLYT); F[TIME] = tm;
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r([+F[FLT].toFixed(4), +sp.toFixed(1), +(F[EY] - YR).toFixed(1), EC.v && EC.v.flap ? 1 : 0, +(EC.v ? EC.v.fold : 0).toFixed(2)])))); },
+    // the game's wind for a recorded flight: samples [speed, height above the river, flapping, fold] every `st` seconds
+    async wavTrack(list, st) {
+      const sr = 48000, dur = list.length * st, ac = new OfflineAudioContext(2, sr * dur, sr); mkSound(ac);
+      OUT.gain.cancelScheduledValues(0); OUT.gain.setValueAtTime(0.8, 0);
+      let lastF = -1;
+      list.forEach(([sp, hr, flap, fold], i) => { const t = i * st, k = clamp((sp - 6) / 60, 0, 1);
+        if (!i) { WG.gain.setValueAtTime(0.10 + 0.55 * k * k, 0); WF.frequency.setValueAtTime(300 + 1400 * k, 0); RG.gain.setValueAtTime(0.35 * sstep(140, 10, hr), 0); }
+        WG.gain.setTargetAtTime(0.10 + 0.55 * k * k + 0.1 * fold, t, 0.15); WF.frequency.setTargetAtTime(300 + 1400 * k, t, 0.2); RG.gain.setTargetAtTime(0.35 * sstep(140, 10, hr), t, 0.4);
+        if (flap && t - lastF > 0.38) { lastF = t; FG.gain.setValueAtTime(0, t); FG.gain.linearRampToValueAtTime(0.5, t + 0.08); FG.gain.setTargetAtTime(0, t + 0.1, 0.07); } });
+      return wavOf(await ac.startRendering());
+    },
+    // another scripted flight: from z0 along river A, one height above the river per 180 m (14 heights = 60 s)
+    path(z0, hs) { setPath(z0, hs); return FLYN; },
+    // heights above the river along the flight from t0 for dur seconds, every 0.25 s (for the offline sound)
+    heights(t0, dur, slow = 1) { const o = []; for (let t = 0; t <= dur; t += 0.25) { flyRaw(flyS(t0 + t * slow)); o.push(+(P3[1] - YR).toFixed(1)); } return o; },
+    // the game's own wind for a flight, rendered offline on the same clock (speed: the scripted flight's 39 m/s times slow):
+    // returns a 16-bit stereo WAV as base64
+    async wav(t0, dur, slow = 1) {
+      const sr = 48000, ac = new OfflineAudioContext(2, sr * dur, sr); mkSound(ac);
+      OUT.gain.cancelScheduledValues(0); OUT.gain.setValueAtTime(0.8, 0);
+      const k = (39 * slow - 6) / 60; WG.gain.setValueAtTime(0.10 + 0.55 * k * k, 0); WF.frequency.setValueAtTime(300 + 1400 * k, 0);
+      const hs = this.heights(t0, dur, slow); RG.gain.setValueAtTime(0.35 * sstep(140, 10, hs[0]), 0);
+      hs.forEach((h, i) => RG.gain.setTargetAtTime(0.35 * sstep(140, 10, h), i * 0.25, 0.4));
+      return wavOf(await ac.startRendering());
+    },
     toThermal(i) { this.hideMenu(); started = true; mode = 0; placeEagle(THERM[i * 8] - 30, THERM[i * 8 + 1] + 30, THERM[i * 8 + 2], PI / 2, 15); return NTH; },
     hud(on) { hud = on; info.textContent = ''; },
     // shaded relief of the heightmap (S x S), river centre line in blue, viewpoints in red, the benchmark path in yellow
